@@ -4,3 +4,5 @@ artifacts/
 *.log
 .DS_Store
 /artifacts
+/store-assets
+/release

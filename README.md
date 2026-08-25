@@ -1,128 +1,219 @@
+<div align="center">
+
+<img src="docs/assets/audioroute-hero.png" alt="AudioRoute — Put Chrome audio where it belongs" width="100%" />
+
 # AudioRoute
 
-### Route one Chrome tab to any audio output
+### One Chrome tab. Any audio output. No system-wide switching.
 
-AudioRoute is a local Manifest V3 Chrome extension that sends the audio from the active tab to a different speaker, headset, HDMI output, USB DAC, or virtual audio device — without changing the Windows default output.
+Route a tab to headphones, speakers, HDMI, a USB DAC, or a virtual device — while every other app keeps using the Windows default output.
 
 <p>
   <img src="https://img.shields.io/badge/Chrome-116%2B-4285F4?logo=googlechrome&logoColor=white" alt="Chrome 116 or newer" />
-  <img src="https://img.shields.io/badge/Manifest-V3-167C5A" alt="Manifest V3" />
-  <img src="https://img.shields.io/badge/Privacy-local--only-5EE8AE?labelColor=10201A&color=5EE8AE" alt="Local only" />
+  <img src="https://img.shields.io/badge/Manifest-V3-156B50" alt="Manifest V3" />
+  <img src="https://img.shields.io/badge/Privacy-local--only-57E3A7?labelColor=0B1A15" alt="Local-only privacy" />
+  <img src="https://img.shields.io/badge/Telemetry-none-57E3A7?labelColor=0B1A15" alt="No telemetry" />
 </p>
 
-AudioRoute is designed for focused, per-tab routing. Pick a destination in the existing popup and routing starts immediately. Close the popup and the route keeps running.
+<p>
+  <a href="#install-locally"><strong>Install locally</strong></a>
+  ·
+  <a href="#how-it-works"><strong>How it works</strong></a>
+  ·
+  <a href="#privacy-by-design"><strong>Privacy</strong></a>
+  ·
+  <a href="#development"><strong>Development</strong></a>
+</p>
 
-## Highlights
+</div>
 
-- **Per-tab audio routing** — redirect only the active tab, not the entire browser.
-- **Immediate start** — selecting an output device starts routing automatically.
-- **Inline device picker** — no extra setup window or popout.
-- **Persistent route** — audio keeps playing after the popup closes.
-- **Live output switching** — change the destination while routing is active.
-- **Fullscreen-aware handoff** — detected fullscreen controls briefly pause capture while the page enters fullscreen, then resume the same route.
-- **Local-first privacy** — no server, analytics, cloud upload, or browsing history access.
-- **Device resilience** — a disconnected output stops safely instead of leaving the tab silent.
+---
+
+## Your browser has more than one destination
+
+Windows lets applications choose an audio output. Chrome usually sends every tab to the same one. AudioRoute adds the missing layer: **output selection per active tab**.
+
+<table>
+  <tr>
+    <td width="33%" valign="top">
+      <strong>🎯 Per-tab control</strong><br><br>
+      Redirect only the tab you choose. The rest of Chrome and Windows stay untouched.
+    </td>
+    <td width="33%" valign="top">
+      <strong>⚡ Instant routing</strong><br><br>
+      Pick a device and playback starts immediately—there is no second start button.
+    </td>
+    <td width="33%" valign="top">
+      <strong>🔒 Local by default</strong><br><br>
+      No account, backend, analytics, recording, upload, or browsing-history access.
+    </td>
+  </tr>
+  <tr>
+    <td width="33%" valign="top">
+      <strong>🎧 Live switching</strong><br><br>
+      Move an active route between headphones, speakers, HDMI, USB, and virtual outputs.
+    </td>
+    <td width="33%" valign="top">
+      <strong>🪟 Popup-free playback</strong><br><br>
+      Close the popup whenever you want. The route continues in the background.
+    </td>
+    <td width="33%" valign="top">
+      <strong>⛶ Fullscreen aware</strong><br><br>
+      A small compatibility bridge helps common video players enter native fullscreen.
+    </td>
+  </tr>
+</table>
+
+## See the route at a glance
+
+<img src="docs/assets/audioroute-routing.png" alt="AudioRoute popup showing a Chrome tab routed to USB headphones" width="100%" />
+
+The signal-path interface keeps the important state visible: **source tab → selected destination → live routing status**. Changing the destination is always one click away.
+
+## Start routing in seconds
+
+1. Play audio in a Chrome tab.
+2. Open **AudioRoute** from the toolbar.
+3. Select an output device.
+4. Keep listening—routing starts immediately and survives closing the popup.
+
+To switch outputs, click the current destination. To restore normal playback, reopen AudioRoute on the routed tab and choose **Stop routing**.
+
+> [!TIP]
+> AudioRoute never changes the Windows default output. Your games, calls, music apps, and other Chrome tabs keep their existing destination.
 
 ## How it works
 
-```text
-Active Chrome tab
-        │
-        │  chrome.tabCapture
-        ▼
-Offscreen audio context
-        │
-        │  AudioContext.setSinkId()
-        ▼
-Selected speaker / headset / HDMI / virtual device
+```mermaid
+flowchart LR
+    A[Active Chrome tab] -->|chrome.tabCapture| B[Local tab audio stream]
+    B --> C[Offscreen AudioContext]
+    C -->|setSinkId| D[Selected output device]
+
+    style A fill:#10251e,stroke:#57e3a7,color:#effff8
+    style B fill:#10251e,stroke:#2d8061,color:#effff8
+    style C fill:#10251e,stroke:#2d8061,color:#effff8
+    style D fill:#123a2c,stroke:#57e3a7,color:#effff8
 ```
 
-The service worker obtains a stream ID for the selected tab. An offscreen document consumes that stream, creates an `AudioContext`, selects the requested sink, and keeps playback alive after the popup closes.
+When you invoke AudioRoute, its service worker obtains an audio stream ID for the active tab. A hidden extension document consumes that stream, creates a Web Audio context, and selects your requested output with `AudioContext.setSinkId()`. Everything stays inside Chrome's local media pipeline.
 
 ## Install locally
 
-1. Open `chrome://extensions` in desktop Chrome.
-2. Enable **Developer mode**.
-3. Click **Load unpacked**.
-4. Select this project folder.
-5. Pin **AudioRoute** from the Extensions menu.
+AudioRoute runs directly from the repository—no compilation step is required.
 
-Chrome 116 or newer is required. No build step or package installation is needed for the extension itself.
+1. Download or clone this repository.
+2. Open `chrome://extensions` in desktop Chrome.
+3. Enable **Developer mode**.
+4. Select **Load unpacked**.
+5. Choose the repository folder containing `manifest.json`.
+6. Pin **AudioRoute** from Chrome's Extensions menu.
 
-## Use AudioRoute
+**Requirement:** Google Chrome 116 or newer on desktop.
 
-1. Open a tab that is playing audio, such as YouTube, Spotify Web, or a meeting app.
-2. Click the AudioRoute toolbar icon.
-3. Click **Choose an output device**.
-4. Approve the one-time device-list permission if Chrome asks for it.
-5. Select a destination. Routing starts immediately.
+## A note about device access
 
-To change the destination, click the current output device while routing is active. To stop routing, reopen AudioRoute for the same tab and click **Stop routing**.
+Chrome does not expose the complete list of audio outputs in every context until media-device access has been granted. If the native speaker picker is unavailable, AudioRoute requests one-time media permission only to reveal the available output-device names.
 
-## Why Chrome may ask for microphone access
+The temporary microphone stream is stopped immediately. It is **never recorded, monitored, played, stored, uploaded, or transmitted**.
 
-Some Chrome versions expose the complete output-device list only after media permission. When the native speaker picker is unavailable, AudioRoute requests microphone permission only to unlock that list. The temporary microphone stream is stopped immediately; it is never recorded, played, stored, uploaded, or transmitted.
+If Chrome closes the popup during its permission prompt, simply reopen AudioRoute. The pending device selection resumes automatically inside the extension popup.
 
-If Chrome closes the popup during the first permission prompt, reopen AudioRoute. The pending selection is resumed automatically inside the same popup. If permission is blocked, the popup keeps the specific error visible and offers Chrome's microphone settings.
+## Fullscreen compatibility
 
-## Fullscreen behavior
+Chromium may reject a page-level `requestFullscreen()` while that same tab is being captured, even though browser-level <kbd>F11</kbd> still works. AudioRoute handles this by injecting a small bundled bridge only into the user-invoked tab. It recognizes common fullscreen controls, briefly suspends capture before the transition, and restores the same route afterward.
 
-Chromium currently has a self-capture fullscreen limitation: a page that is being captured may reject a DOM `requestFullscreen()` call, while browser-level F11 still works. AudioRoute injects a small, temporary bridge into the user-invoked tab. When it recognizes a common fullscreen control, it pauses capture before the click completes and resumes the route after fullscreen changes.
+Built-in support covers common YouTube-style controls, Video.js, Shaka Player, Plyr, and accessible fullscreen buttons identified through labels or titles. Unusual embedded players can still require <kbd>F11</kbd>.
 
-Most common players are covered, including YouTube-style, Video.js, Shaka, Plyr, and accessible `aria-label`/title controls. Unusual embedded players may still require F11.
+## Privacy by design
+
+> [!IMPORTANT]
+> AudioRoute has no backend and makes no network requests. Audio never leaves your device.
+
+- No account or sign-in
+- No analytics or telemetry
+- No advertising or tracking
+- No cloud processing
+- No audio recording or transcript
+- No browsing-history permission
+- No broad host permissions such as `<all_urls>`
+- No remote code
+
+The only persistent preference is the locally selected output-device identifier and label. Temporary session storage is used solely to resume device selection after Chrome's permission flow.
+
+## Permissions, without the mystery
+
+| Permission | Why AudioRoute needs it |
+| :--- | :--- |
+| `activeTab` | Temporarily identifies the tab from which the user opened AudioRoute. |
+| `tabCapture` | Creates the selected tab's local audio stream after an explicit user action. |
+| `offscreen` | Keeps the Web Audio context alive after the extension popup closes. |
+| `scripting` | Injects the bundled fullscreen compatibility bridge into that active tab. |
+| `storage` | Remembers the selected local output and resumes interrupted device setup. |
+
+Every permission directly supports the extension's single purpose. There is no persistent access to websites.
 
 ## Technical boundaries
 
-- Routing is **per tab**. Start a separate route for each tab you want to redirect.
-- Chrome system pages (`chrome://…`), the Chrome Web Store, and other protected pages cannot be captured.
-- Bluetooth and virtual devices may add latency imposed by the operating system or driver.
-- Chrome displays its normal tab-capture indicator while a route is active.
-- The extension requires a desktop Chrome with `AudioContext.setSinkId()` support.
-- AudioRoute does not change the Windows system default output.
-
-## Permissions
-
-| Permission | Why it is used |
-| --- | --- |
-| `activeTab` | Grants temporary access to the tab whose toolbar action the user invoked. |
-| `tabCapture` | Creates the active tab's audio stream after the user action. |
-| `offscreen` | Keeps the audio context alive after the popup closes. |
-| `scripting` | Injects the temporary fullscreen handoff bridge into the invoked tab. |
-| `storage` | Stores the selected output device locally and resumes interrupted setup. |
-
-There are no broad host permissions and no persistent website access request.
+- Routing is per tab. Start a separate route for every tab you want to redirect.
+- Chrome system pages, the Chrome Web Store, and other protected pages cannot be captured.
+- Chrome shows its normal tab-capture indicator while routing is active.
+- Bluetooth, HDMI, and virtual devices can add latency at the operating-system or driver level.
+- Disconnecting the active device stops the route safely instead of leaving the tab silently captured.
+- AudioRoute requires `AudioContext.setSinkId()` and therefore a current desktop version of Chrome.
 
 ## Development
+
+Run the complete non-audio verification suite:
 
 ```powershell
 npm run verify
 ```
 
-`npm run verify` checks the Manifest V3 structure, required assets, JavaScript syntax, popup IDs, and the pure utility test suite. It does not start Chrome or play audio.
+This validates the Manifest V3 package, required assets, JavaScript syntax, popup structure, and utility tests. It neither opens an audio route nor plays a test sound.
 
-Regenerate the extension icons with:
+Build the publishable Chrome Web Store package:
+
+```powershell
+npm run build:release
+```
+
+The build verifies the project and writes `release/AudioRoute-v<version>.zip` with `manifest.json` at the archive root. Tests, development scripts, screenshots, and other non-runtime files are excluded automatically. A SHA-256 checksum is printed after every successful build.
+
+<details>
+<summary><strong>Project structure</strong></summary>
+
+```text
+AudioRoute/
+├── manifest.json          Extension metadata and permissions
+├── service-worker.js      Capture lifecycle and routing coordination
+├── popup/                 Signal-path UI and inline device picker
+├── offscreen/             Persistent AudioContext and sink selection
+├── content/               Temporary fullscreen compatibility bridge
+├── shared/                Messages, errors, and device helpers
+├── icons/                 Extension icons for Chrome
+├── tests/                 Node-based utility tests
+├── scripts/               Validation, inspection, and release tooling
+└── docs/assets/           GitHub README visuals
+```
+
+</details>
+
+<details>
+<summary><strong>Regenerate extension icons</strong></summary>
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\scripts\generate-icons.ps1
 ```
 
-## Project layout
+</details>
 
-```text
-manifest.json            Extension metadata and permissions
-service-worker.js        Tab capture, routing state, fullscreen handoff
-popup/                   Popup UI and inline device picker
-offscreen/               Persistent AudioContext and sink selection
-content/                 Temporary fullscreen bridge
-shared/                  Message types and error/device helpers
-tests/                   Node-based utility tests
-scripts/                 Validation and local inspection helpers
-```
+## Built for a simple promise
 
-## Privacy
+> **The right tab. The right output. Nothing leaves your machine.**
 
-AudioRoute is local-only. It has no backend, telemetry, analytics, account system, network request, transcript, recording store, or cloud integration. Audio is passed through Chrome's local media pipeline only long enough to play it through the selected output device.
+AudioRoute focuses on doing one thing well: giving a Chrome tab its own audio destination without turning a small routing task into a system-wide configuration exercise.
 
 ## License
 
-No license has been selected for this project yet. Add a license file before distributing AudioRoute publicly.
+This repository currently has no license file. Unless a license is added, standard copyright rules apply.

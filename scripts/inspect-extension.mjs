@@ -72,7 +72,7 @@ const capabilityResult = await command("Runtime.evaluate", {
 if (isPopup) {
   await command("Runtime.evaluate", {
     expression: `(() => {
-    document.querySelector('#tab-title').textContent = 'Live-Konzert – Studio Session';
+    document.querySelector('#tab-title').textContent = 'Live concert – Studio Session';
     document.querySelector('#tab-host').textContent = 'music.example';
     document.querySelector('#audio-state').dataset.audible = 'true';
     document.querySelector('#device-name').textContent = 'Headphones (USB Audio DAC)';
