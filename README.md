@@ -40,8 +40,8 @@ Windows lets applications choose an audio output. Chrome usually sends every tab
       Redirect only the tab you choose. The rest of Chrome and Windows stay untouched.
     </td>
     <td width="33%" valign="top">
-      <strong>⚡ Instant routing</strong><br><br>
-      Pick a device and playback starts immediately—there is no second start button.
+      <strong>⚡ Guided routing</strong><br><br>
+      Pick a device, approve Chrome if needed, then reopen AudioRoute to start the prepared route.
     </td>
     <td width="33%" valign="top">
       <strong>🔒 Local by default</strong><br><br>
@@ -74,8 +74,8 @@ The signal-path interface keeps the important state visible: **source tab → se
 
 1. Play audio in a Chrome tab.
 2. Open **AudioRoute** from the toolbar.
-3. Select an output device.
-4. Keep listening—routing starts immediately and survives closing the popup.
+3. Select an output device, then return to the source tab and reopen **AudioRoute**.
+4. Choose **Start routing**. Playback survives closing the popup.
 
 To switch outputs, click the current destination. To restore normal playback, reopen AudioRoute on the routed tab and choose **Stop routing**.
 
@@ -113,11 +113,9 @@ AudioRoute runs directly from the repository—no compilation step is required.
 
 ## A note about device access
 
-Chrome does not expose the complete list of audio outputs in every context until media-device access has been granted. If the native speaker picker is unavailable, AudioRoute requests one-time media permission only to reveal the available output-device names.
+Chrome does not expose the complete list of audio outputs in every context until media-device access has been granted. AudioRoute therefore opens device setup in its own focused window, outside the toolbar popup, so Chrome's permission prompt remains fully visible and clickable. If the native speaker picker is unavailable, AudioRoute requests one-time media permission only to reveal the available output-device names.
 
 The temporary microphone stream is stopped immediately. It is **never recorded, monitored, played, stored, uploaded, or transmitted**.
-
-If Chrome closes the popup during its permission prompt, simply reopen AudioRoute. The pending device selection resumes automatically inside the extension popup.
 
 ## Fullscreen compatibility
 
@@ -187,7 +185,8 @@ The build verifies the project and writes `release/AudioRoute-v<version>.zip` wi
 AudioRoute/
 ├── manifest.json          Extension metadata and permissions
 ├── service-worker.js      Capture lifecycle and routing coordination
-├── popup/                 Signal-path UI and inline device picker
+├── popup/                 Compact signal-path and route controls
+├── setup/                 Visible permission and output-selection flow
 ├── offscreen/             Persistent AudioContext and sink selection
 ├── content/               Temporary fullscreen compatibility bridge
 ├── shared/                Messages, errors, and device helpers

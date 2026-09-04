@@ -73,8 +73,13 @@ async function getActiveTab() {
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
   if (!tab?.id) throw new Error("The active tab could not be determined.");
 
+  return serializeTab(tab);
+}
+
+function serializeTab(tab) {
   return {
     id: tab.id,
+    windowId: tab.windowId,
     title: tab.title || "Untitled tab",
     url: tab.url || "",
     audible: Boolean(tab.audible),

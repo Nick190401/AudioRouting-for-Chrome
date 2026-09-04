@@ -10,6 +10,9 @@ const requiredFiles = [
   "popup/popup.html",
   "popup/popup.css",
   "popup/popup.js",
+  "setup/setup.html",
+  "setup/setup.css",
+  "setup/setup.js",
   "content/fullscreen-bridge.js",
   "offscreen/offscreen.html",
   "offscreen/offscreen.js",
@@ -60,26 +63,42 @@ for (const id of [
   "notice-text",
   "notice-close",
   "persistence-note",
-  "device-dialog",
-  "permission-step",
-  "device-list-step",
-  "device-list",
-  "permission-error",
-  "dialog-error",
-  "permission-button",
-  "microphone-settings",
 ]) {
   if (!popupHtml.includes(`id="${id}"`)) failures.push(`Popup ID missing: ${id}`);
 }
 
-if (popupHtml.includes("chrome.windows.create")) {
-  failures.push("The device picker must not open a separate window.");
+const popupJavascript = readFileSync(resolve(workspace, "popup/popup.js"), "utf8");
+if (popupJavascript.includes("getUserMedia") || popupJavascript.includes("selectAudioOutput")) {
+  failures.push("Media permission prompts must not originate from the toolbar popup.");
+}
+if (!popupJavascript.includes('chrome.runtime.getURL("setup/setup.html")')) {
+  failures.push("The toolbar popup must hand device selection to the standalone setup window.");
+}
+const setupHtml = readFileSync(resolve(workspace, "setup/setup.html"), "utf8");
+for (const id of [
+  "source-title",
+  "notice",
+  "notice-text",
+  "permission-step",
+  "permission-button",
+  "microphone-settings",
+  "device-list-step",
+  "device-list",
+  "success-step",
+  "success-kicker",
+  "success-title",
+  "success-copy",
+  "return-button",
+  "cancel-button",
+]) {
+  if (!setupHtml.includes(`id="${id}"`)) failures.push(`Setup ID missing: ${id}`);
 }
 
 const javascriptFiles = [
   "service-worker.js",
   "shared/utils.js",
   "popup/popup.js",
+  "setup/setup.js",
   "content/fullscreen-bridge.js",
   "offscreen/offscreen.js",
   "scripts/cdp-command.mjs",

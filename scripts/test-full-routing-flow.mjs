@@ -41,6 +41,8 @@ const sourceAudio = await evaluateValue(sourcePage, `(async () => {
   return { state: context.state, frequency: oscillator.frequency.value };
 })()`, true);
 
+await browser.command("Target.activateTarget", { targetId: sourceTarget.id });
+await delay(250);
 await browser.command("Extensions.triggerAction", {
   id: extensionId,
   targetId: sourceTarget.id,
@@ -53,11 +55,11 @@ const popupTarget = await waitForTarget(
 );
 if (!popupTarget) throw new Error("The toolbar popup was not opened by Extensions.triggerAction.");
 
-const popup = await connectToTarget(popupTarget.webSocketDebuggerUrl);
-await popup.command("Runtime.enable");
-await popup.command("Page.enable");
+const initialPopup = await connectToTarget(popupTarget.webSocketDebuggerUrl);
+await initialPopup.command("Runtime.enable");
+await initialPopup.command("Page.enable");
 try {
-  await popup.command("Emulation.setDeviceMetricsOverride", {
+  await initialPopup.command("Emulation.setDeviceMetricsOverride", {
     width: 376,
     height: 506,
     deviceScaleFactor: 1,
@@ -67,7 +69,7 @@ try {
   // Toolbar popups own their viewport and reject metric overrides.
 }
 await delay(700);
-const activeTabState = await evaluateValue(popup, `(async () => {
+const activeTabState = await evaluateValue(initialPopup, `(async () => {
   const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
   const response = await chrome.runtime.sendMessage({
     target: 'audio-route-worker',
@@ -76,56 +78,101 @@ const activeTabState = await evaluateValue(popup, `(async () => {
   return { queriedTab: tabs[0] || null, workerTab: response?.tab || null };
 })()`, true);
 
-await popup.command("Runtime.evaluate", {
+await initialPopup.command("Runtime.evaluate", {
   expression: `(async () => {
     await chrome.storage.local.clear();
     await chrome.storage.session.clear();
-    location.reload();
   })()`,
   awaitPromise: true,
 });
 await delay(750);
 
-await popup.command("Runtime.evaluate", {
+await initialPopup.command("Runtime.evaluate", {
   expression: "document.querySelector('#device-picker').click()",
 });
-await delay(650);
-let picker = await evaluateValue(popup, `({
+const setupTarget = await waitForTarget(
+  (target) => target.url === `${extensionOrigin}/setup/setup.html`,
+  4000,
+);
+if (!setupTarget) {
+  const failureState = await evaluateValue(initialPopup, `(async () => ({
+    pickerDisabled: document.querySelector('#device-picker').disabled,
+    notice: document.querySelector('#notice').hidden ? '' : document.querySelector('#notice-text').textContent,
+    tabTitle: document.querySelector('#tab-title').textContent,
+    pending: (await chrome.storage.session.get('pendingOutputSelection')).pendingOutputSelection || null
+  }))()`, true);
+  throw new Error(`Device selection did not open in its standalone window: ${JSON.stringify(failureState)}`);
+}
+initialPopup.close();
+
+const setup = await connectToTarget(setupTarget.webSocketDebuggerUrl);
+await setup.command("Runtime.enable");
+await setup.command("Page.enable");
+await delay(750);
+let picker = await evaluateValue(setup, `({
   permissionHidden: document.querySelector('#permission-step').hidden,
-  deviceCount: document.querySelectorAll('.device-option').length
+  deviceCount: document.querySelectorAll('.device-option').length,
+  nativePicker: typeof navigator.mediaDevices?.selectAudioOutput === 'function',
+  notice: document.querySelector('#notice').hidden ? '' : document.querySelector('#notice-text').textContent
 })`);
 if (!picker.permissionHidden && picker.deviceCount === 0) {
-  await popup.command("Runtime.evaluate", {
+  await setup.command("Runtime.evaluate", {
     expression: "document.querySelector('#permission-button').click()",
   });
-  await delay(1400);
+  await delay(picker.nativePicker ? 300 : 1400);
 }
 
-picker = await evaluateValue(popup, `({
-  dialogOpen: document.querySelector('#device-dialog').open,
-  deviceCount: document.querySelectorAll('.device-option').length,
-  permissionError: document.querySelector('#permission-error').textContent,
-  devicesError: document.querySelector('#dialog-error').textContent
-})`);
-if (picker.deviceCount < 1) throw new Error(`No test outputs visible: ${JSON.stringify(picker)}`);
-
-await popup.command("Runtime.evaluate", {
-  expression: "document.querySelector('.device-option').click()",
-});
-await delay(600);
-const selectionState = await evaluateValue(popup, `(async () => {
-  const stored = (await chrome.storage.local.get('preferredOutputDevice')).preferredOutputDevice || null;
-  if (!stored) return { stored, sinkProbe: null };
-  const context = new AudioContext();
-  try {
-    await context.setSinkId(stored.deviceId);
-    return { stored, sinkProbe: { ok: true, sinkId: context.sinkId } };
-  } catch (error) {
-    return { stored, sinkProbe: { ok: false, name: error.name, message: error.message } };
-  } finally {
-    await context.close();
+if (!picker.nativePicker) {
+  picker = await evaluateValue(setup, `({
+    permissionHidden: document.querySelector('#permission-step').hidden,
+    deviceCount: document.querySelectorAll('.device-option').length,
+    nativePicker: false,
+    notice: document.querySelector('#notice').hidden ? '' : document.querySelector('#notice-text').textContent
+  })`);
+  if (picker.deviceCount < 1) {
+    throw new Error(`No test outputs visible: ${JSON.stringify(picker)}`);
   }
-})()`, true);
+  await setup.command("Runtime.evaluate", {
+    expression: "document.querySelector('.device-option').click()",
+  });
+}
+
+await delay(500);
+const selectionState = await evaluateValue(setup, `(async () => ({
+  stored: (await chrome.storage.local.get('preferredOutputDevice')).preferredOutputDevice || null,
+  pendingSelection: (await chrome.storage.session.get('pendingOutputSelection')).pendingOutputSelection || null,
+  successVisible: !document.querySelector('#success-step').hidden,
+  notice: document.querySelector('#notice').hidden ? '' : document.querySelector('#notice-text').textContent
+}))()`, true);
+await setup.command("Runtime.evaluate", {
+  expression: "document.querySelector('#return-button').click()",
+});
+await delay(500);
+
+await browser.command("Target.activateTarget", { targetId: sourceTarget.id });
+await delay(250);
+await browser.command("Extensions.triggerAction", {
+  id: extensionId,
+  targetId: sourceTarget.id,
+});
+
+const routedPopupTarget = await waitForTarget(
+  (target) => target.url === `${extensionOrigin}/popup/popup.html` && target.id !== popupTarget.id,
+  4000,
+);
+if (!routedPopupTarget) throw new Error("AudioRoute did not reopen on the source tab after device setup.");
+
+const popup = await connectToTarget(routedPopupTarget.webSocketDebuggerUrl);
+await popup.command("Runtime.enable");
+await popup.command("Page.enable");
+await delay(900);
+
+const readyUi = await evaluateValue(popup, `({
+  badge: document.querySelector('#route-badge-label').textContent,
+  buttonLabel: document.querySelector('#route-button-label').textContent,
+  notice: document.querySelector('#notice').hidden ? '' : document.querySelector('#notice-text').textContent,
+  device: document.querySelector('#device-name').textContent
+})`);
 await popup.command("Runtime.evaluate", {
   expression: "document.querySelector('#route-button').click()",
 });
@@ -194,6 +241,7 @@ const result = {
   activeTabState,
   picker,
   selectionState,
+  readyUi,
   activeUi,
   offscreenOutputs,
   offscreenDocument: Boolean(offscreenTarget),
@@ -201,6 +249,8 @@ const result = {
   stoppedUi,
   capturedAfterStop,
   popupRuntimeExceptions: popup.exceptions,
+  initialPopupRuntimeExceptions: initialPopup.exceptions,
+  setupRuntimeExceptions: setup.exceptions,
   workerRuntimeExceptions: worker.exceptions,
   screenshots: [outputPath, stoppedPath],
 };
@@ -213,15 +263,25 @@ if (
   activeUi.notice ||
   !offscreenTarget ||
   !capturedWhileActive.some((capture) => capture.status === "active") ||
+  !selectionState.stored?.deviceId ||
+  selectionState.pendingSelection ||
+  !selectionState.successVisible ||
+  selectionState.notice ||
+  readyUi.badge !== "Ready" ||
+  readyUi.buttonLabel !== "Start routing" ||
+  readyUi.notice ||
   stoppedUi.badge !== "Ready" ||
   stoppedUi.signalActive !== "false" ||
   stoppedUi.buttonLabel !== "Start routing" ||
   capturedAfterStop.some((capture) => capture.status === "active") ||
   popup.exceptions.length ||
+  initialPopup.exceptions.length ||
+  setup.exceptions.length ||
   worker.exceptions.length
 ) process.exitCode = 1;
 
 popup.close();
+setup.close();
 worker.close();
 sourcePage.close();
 browser.close();

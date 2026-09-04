@@ -20,6 +20,7 @@ export const MESSAGE_TYPE = Object.freeze({
 });
 
 export const PREFERRED_OUTPUT_STORAGE_KEY = "preferredOutputDevice";
+export const PENDING_OUTPUT_SELECTION_STORAGE_KEY = "pendingOutputSelection";
 
 const RESTRICTED_PROTOCOLS = new Set([
   "about:",
@@ -59,6 +60,28 @@ export function normalizeDevice(device) {
   return {
     deviceId: device.deviceId,
     label,
+  };
+}
+
+export function normalizePendingOutputSelection(selection) {
+  if (
+    !selection ||
+    !Number.isInteger(selection.tabId) ||
+    selection.tabId < 0 ||
+    !Number.isInteger(selection.windowId) ||
+    selection.windowId < 0
+  ) {
+    return null;
+  }
+
+  return {
+    tabId: selection.tabId,
+    windowId: selection.windowId,
+    action: selection.action === "change" ? "change" : "start",
+    tabTitle:
+      typeof selection.tabTitle === "string" && selection.tabTitle.trim()
+        ? selection.tabTitle.trim().slice(0, 200)
+        : "Selected Chrome tab",
   };
 }
 

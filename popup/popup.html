@@ -115,55 +115,6 @@
       </footer>
     </main>
 
-    <dialog class="device-dialog" id="device-dialog" aria-labelledby="device-dialog-title">
-      <form method="dialog" class="device-dialog__sheet">
-        <header class="device-dialog__header">
-          <div class="dialog-title-lockup">
-            <span class="dialog-title-icon" aria-hidden="true">
-              <svg viewBox="0 0 24 24">
-                <path d="M4 9.25v5.5h3.7l4.8 3.75v-13L7.7 9.25H4Z"></path>
-                <path d="M16 8.4a4.8 4.8 0 0 1 0 7.2M18.6 5.8a8.25 8.25 0 0 1 0 12.4"></path>
-              </svg>
-            </span>
-            <div>
-              <p class="eyebrow">Audio output</p>
-              <h2 id="device-dialog-title">Choose destination</h2>
-            </div>
-          </div>
-          <button class="dialog-close" value="cancel" aria-label="Close device picker">×</button>
-        </header>
-
-        <section class="permission-step" id="permission-step">
-          <div class="permission-illustration" aria-hidden="true">
-            <svg viewBox="0 0 32 32">
-              <path d="M16 20.5a5 5 0 0 0 5-5v-7a5 5 0 0 0-10 0v7a5 5 0 0 0 5 5Z"></path>
-              <path d="M7.5 15.5a8.5 8.5 0 0 0 17 0M16 24v4m-4 0h8"></path>
-              <path class="permission-slash" d="m6 6 20 20"></path>
-            </svg>
-          </div>
-          <p class="step-kicker">One-time permission</p>
-          <h3>Unlock your device list</h3>
-          <p>
-            Chrome shows all speakers only after media permission. The microphone is opened only to unlock the list, then stopped immediately.
-          </p>
-          <ul>
-            <li>no recording</li>
-            <li>no audio data</li>
-            <li>no transfer</li>
-          </ul>
-          <p class="dialog-error permission-error" id="permission-error" role="alert" hidden></p>
-          <button class="permission-button" id="permission-button" type="button">Allow device access</button>
-          <button class="dialog-settings-button" id="microphone-settings" type="button" hidden>Open microphone settings</button>
-        </section>
-
-        <section class="device-list-step" id="device-list-step" hidden>
-          <p class="device-list-intro">Where should this tab play audio?</p>
-          <div class="device-list" id="device-list" role="list"></div>
-          <p class="dialog-error" id="dialog-error" role="alert" hidden></p>
-        </section>
-      </form>
-    </dialog>
-
     <script type="module" src="popup.js"></script>
   </body>
 </html>

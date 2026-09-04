@@ -8,6 +8,7 @@ import {
   isRestrictedUrl,
   normalizeDevice,
   normalizeError,
+  normalizePendingOutputSelection,
 } from "../shared/utils.js";
 
 test("recognizes Chrome system pages and allows regular and local pages", () => {
@@ -29,6 +30,25 @@ test("normalizes stored audio devices", () => {
     label: "USB DAC",
   });
   assert.equal(normalizeDevice(null), null);
+});
+
+test("accepts only bounded pending output-selection state", () => {
+  assert.deepEqual(
+    normalizePendingOutputSelection({
+      tabId: 42,
+      windowId: 7,
+      action: "change",
+      tabTitle: "  Live concert  ",
+    }),
+    {
+      tabId: 42,
+      windowId: 7,
+      action: "change",
+      tabTitle: "Live concert",
+    },
+  );
+  assert.equal(normalizePendingOutputSelection({ tabId: "42", windowId: 7 }), null);
+  assert.equal(normalizePendingOutputSelection({ tabId: 42, windowId: -1 }), null);
 });
 
 test("prefers physical audio outputs over default aliases", () => {

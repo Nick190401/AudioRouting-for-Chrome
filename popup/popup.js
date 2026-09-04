@@ -1,34 +1,24 @@
 import {
   MESSAGE_TARGET,
   MESSAGE_TYPE,
+  PENDING_OUTPUT_SELECTION_STORAGE_KEY,
   PREFERRED_OUTPUT_STORAGE_KEY,
   formatHost,
-  getMeaningfulAudioOutputs,
   inactiveRouteState,
   isRestrictedUrl,
   normalizeDevice,
   normalizeError,
 } from "../shared/utils.js";
 
-const PENDING_SELECTION_KEY = "pendingOutputSelection";
-
 const elements = {
   audioState: document.querySelector("#audio-state"),
-  deviceDialog: document.querySelector("#device-dialog"),
   deviceHint: document.querySelector("#device-hint"),
-  deviceList: document.querySelector("#device-list"),
-  deviceListStep: document.querySelector("#device-list-step"),
   deviceName: document.querySelector("#device-name"),
   devicePicker: document.querySelector("#device-picker"),
-  dialogError: document.querySelector("#dialog-error"),
-  microphoneSettings: document.querySelector("#microphone-settings"),
   notice: document.querySelector("#notice"),
   noticeClose: document.querySelector("#notice-close"),
   noticeText: document.querySelector("#notice-text"),
   outputNode: document.querySelector("#output-node"),
-  permissionButton: document.querySelector("#permission-button"),
-  permissionError: document.querySelector("#permission-error"),
-  permissionStep: document.querySelector("#permission-step"),
   persistenceNote: document.querySelector("#persistence-note"),
   routeBadge: document.querySelector("#route-badge"),
   routeBadgeLabel: document.querySelector("#route-badge-label"),
@@ -45,7 +35,6 @@ const viewState = {
   route: inactiveRouteState(null),
   working: false,
   compatible: true,
-  dialogResolver: null,
 };
 
 elements.devicePicker.addEventListener("click", () => {
@@ -54,9 +43,6 @@ elements.devicePicker.addEventListener("click", () => {
 });
 elements.routeButton.addEventListener("click", () => void toggleRoute());
 elements.noticeClose.addEventListener("click", hideNotice);
-elements.permissionButton.addEventListener("click", () => void grantDeviceAccess());
-elements.microphoneSettings.addEventListener("click", () => void openMicrophoneSettings());
-elements.deviceDialog.addEventListener("close", () => void handleDialogClosed());
 
 chrome.runtime.onMessage.addListener((message) => {
   if (message?.target !== MESSAGE_TARGET.POPUP) return;
@@ -75,7 +61,6 @@ void initialize();
 
 async function initialize() {
   setWorking(true, "Reading active tab …");
-  let pendingSelection = null;
 
   try {
     viewState.compatible = supportsAudioRouting();
@@ -83,16 +68,13 @@ async function initialize() {
       throw new Error("AudioRoute requires a current desktop version of Google Chrome.");
     }
 
-    const [{ tab }, stored, pending] = await Promise.all([
+    const [{ tab }, stored] = await Promise.all([
       sendToWorker(MESSAGE_TYPE.GET_ACTIVE_TAB),
       chrome.storage.local.get(PREFERRED_OUTPUT_STORAGE_KEY),
-      chrome.storage.session.get(PENDING_SELECTION_KEY),
     ]);
 
     viewState.tab = tab;
     viewState.device = normalizeDevice(stored[PREFERRED_OUTPUT_STORAGE_KEY]);
-    pendingSelection = pending[PENDING_SELECTION_KEY] || null;
-
     const { state } = await sendToWorker(MESSAGE_TYPE.GET_ROUTE_STATE, { tabId: tab.id });
     viewState.route = state;
 
@@ -111,222 +93,42 @@ async function initialize() {
     render();
   }
 
-  if (
-    !viewState.device &&
-    pendingSelection?.tabId === viewState.tab?.id &&
-    viewState.compatible
-  ) {
-    const action = pendingSelection.action === "change" ? "change" : "start";
-    void chooseOutput(action);
-  }
 }
 
 function supportsAudioRouting() {
-  return Boolean(
-    navigator.mediaDevices?.enumerateDevices && globalThis.AudioContext?.prototype?.setSinkId,
-  );
+  return Boolean(chrome.offscreen && chrome.tabCapture?.getMediaStreamId);
 }
 
 async function chooseOutput(action = "start") {
-  if (viewState.working || !viewState.compatible) return null;
+  if (viewState.working || !viewState.compatible || !viewState.tab) return;
   hideNotice();
+  setWorking(true, "Opening device selection …");
+  render();
 
   try {
-    let device;
-    if (navigator.mediaDevices.selectAudioOutput) {
-      setWorking(true, "Opening device picker …");
-      device = normalizeDevice(await navigator.mediaDevices.selectAudioOutput());
-    } else {
-      device = await openDeviceDialog(action);
-    }
-
-    if (!device) return null;
-    if (!device?.deviceId) throw new DOMException("No device selected.", "NotFoundError");
-
-    if (viewState.route.active) {
-      const { state } = await sendToWorker(MESSAGE_TYPE.CHANGE_OUTPUT, {
+    await chrome.storage.session.set({
+      [PENDING_OUTPUT_SELECTION_STORAGE_KEY]: {
         tabId: viewState.tab.id,
-        ...device,
-      });
-      if (!state.active) throw new Error("The active audio route was stopped.");
-      viewState.route = state;
-    }
-
-    viewState.device = device;
-    await chrome.storage.local.set({ [PREFERRED_OUTPUT_STORAGE_KEY]: device });
-    await chrome.storage.session.remove(PENDING_SELECTION_KEY);
-
-    if (!viewState.route.active && action === "start") {
-      await startRouting(device);
-    }
-    return device;
+        windowId: viewState.tab.windowId,
+        tabTitle: viewState.tab.title,
+        action,
+      },
+    });
+    await chrome.windows.create({
+      url: chrome.runtime.getURL("setup/setup.html"),
+      type: "popup",
+      width: 480,
+      height: 680,
+      focused: true,
+    });
+    window.close();
   } catch (error) {
     const normalized = normalizeError(error, "The output device could not be selected.");
     showNotice(normalized.message);
-    return null;
   } finally {
     setWorking(false);
     render();
   }
-}
-
-async function openDeviceDialog(action) {
-  await chrome.storage.session.set({
-    [PENDING_SELECTION_KEY]: {
-      tabId: viewState.tab.id,
-      action,
-    },
-  });
-
-  resetDeviceDialog();
-  elements.deviceDialog.showModal();
-  const selection = new Promise((resolve) => {
-    viewState.dialogResolver = resolve;
-  });
-  void prepareDeviceDialog();
-  return selection;
-}
-
-async function prepareDeviceDialog() {
-  try {
-    const permissionState = await getMicrophonePermissionState();
-    if (permissionState === "granted" && elements.deviceDialog.open) {
-      await showAvailableOutputs();
-    } else if (permissionState === "denied") {
-      showPermissionError(
-        "Microphone access is blocked for AudioRoute. Open Chrome settings, allow access, and try again.",
-        true,
-      );
-    }
-  } catch (error) {
-    showPermissionError(
-      normalizeError(error, "The device list could not be prepared.").message,
-      false,
-    );
-  }
-}
-
-async function getMicrophonePermissionState() {
-  try {
-    return (await navigator.permissions.query({ name: "microphone" })).state;
-  } catch {
-    return "prompt";
-  }
-}
-
-async function grantDeviceAccess() {
-  elements.permissionButton.disabled = true;
-  elements.permissionButton.textContent = "Opening Chrome permission …";
-  showPermissionError("", false);
-
-  let microphone;
-  try {
-    microphone = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
-    microphone.getTracks().forEach((track) => track.stop());
-    microphone = null;
-    await showAvailableOutputs();
-  } catch (error) {
-    const normalized = normalizeError(error, "Chrome could not make the device list available.");
-    const blocked = normalized.code === "NotAllowedError";
-    const noMicrophone = normalized.code === "NotFoundError";
-    showPermissionError(
-      noMicrophone
-        ? "Chrome cannot find a microphone to unlock the device list. Check that a microphone is enabled in Windows."
-        : blocked
-          ? "Chrome blocked microphone access or the dialog was closed. Allow it in Chrome settings and try again."
-          : normalized.message,
-      blocked,
-    );
-  } finally {
-    microphone?.getTracks().forEach((track) => track.stop());
-    elements.permissionButton.disabled = false;
-    elements.permissionButton.textContent = "Allow device access";
-  }
-}
-
-async function showAvailableOutputs() {
-  const devices = await navigator.mediaDevices.enumerateDevices();
-  const outputs = getMeaningfulAudioOutputs(devices);
-  elements.deviceList.replaceChildren();
-  elements.permissionStep.hidden = true;
-  elements.deviceListStep.hidden = false;
-
-  if (!outputs.length) {
-    showDeviceListError("Chrome did not find an audio output device.");
-    return;
-  }
-
-  outputs.forEach((output, index) => {
-    const device = normalizeDevice({
-      deviceId: output.deviceId,
-      label: output.label || `Audio output ${index + 1}`,
-    });
-    const button = document.createElement("button");
-    button.type = "button";
-    button.className = "device-option";
-    button.setAttribute("role", "listitem");
-
-    const icon = document.createElement("span");
-    icon.className = "device-option__icon";
-    icon.setAttribute("aria-hidden", "true");
-    icon.textContent = "◖";
-
-    const copy = document.createElement("span");
-    copy.className = "device-option__copy";
-    const name = document.createElement("strong");
-    name.textContent = device.label;
-    const kind = document.createElement("span");
-    kind.textContent = "Audio output device";
-    copy.append(name, kind);
-
-    const arrow = document.createElement("span");
-    arrow.className = "device-option__arrow";
-    arrow.setAttribute("aria-hidden", "true");
-    arrow.textContent = "›";
-
-    button.append(icon, copy, arrow);
-    button.addEventListener("click", () => {
-      resolveDialog(device);
-      elements.deviceDialog.close("selected");
-    });
-    elements.deviceList.append(button);
-  });
-}
-
-function resetDeviceDialog() {
-  elements.permissionStep.hidden = false;
-  elements.deviceListStep.hidden = true;
-  elements.deviceList.replaceChildren();
-  showPermissionError("", false);
-  showDeviceListError("");
-}
-
-function showPermissionError(message, showSettings) {
-  elements.permissionError.textContent = message;
-  elements.permissionError.hidden = !message;
-  elements.microphoneSettings.hidden = !showSettings;
-}
-
-function showDeviceListError(message) {
-  elements.dialogError.textContent = message;
-  elements.dialogError.hidden = !message;
-}
-
-function resolveDialog(device) {
-  if (!viewState.dialogResolver) return;
-  const resolve = viewState.dialogResolver;
-  viewState.dialogResolver = null;
-  resolve(device);
-}
-
-async function handleDialogClosed() {
-  const selected = elements.deviceDialog.returnValue === "selected";
-  resolveDialog(null);
-  if (!selected) await chrome.storage.session.remove(PENDING_SELECTION_KEY);
-}
-
-async function openMicrophoneSettings() {
-  await chrome.tabs.create({ url: "chrome://settings/content/microphone" });
 }
 
 async function toggleRoute() {
@@ -437,7 +239,7 @@ function render() {
 
   const blocked = !compatible || !tab || restricted;
   elements.routeButton.disabled = working || blocked;
-  elements.devicePicker.disabled = working || !compatible;
+  elements.devicePicker.disabled = working || blocked;
 
   if (restricted && !elements.notice.hidden) return;
   if (restricted) {
