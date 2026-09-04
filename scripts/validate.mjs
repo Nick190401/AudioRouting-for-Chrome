@@ -77,8 +77,11 @@ if (popupJavascript.includes("getUserMedia")) {
 if (!popupJavascript.includes('chrome.runtime.getURL("setup/setup.html")')) {
   failures.push("The toolbar popup must hand device selection to the standalone setup window.");
 }
-if (!popupJavascript.includes("getOutputPermissionState")) {
-  failures.push("The toolbar popup must check permission state before choosing its device-selection surface.");
+if (!popupJavascript.includes("getMicrophonePermissionState")) {
+  failures.push("The toolbar popup must check microphone permission before choosing its device-selection surface.");
+}
+if (popupJavascript.includes('"speaker-selection"')) {
+  failures.push("The toolbar popup must not mistake speaker-selection permission for microphone device-list access.");
 }
 const setupHtml = readFileSync(resolve(workspace, "setup/setup.html"), "utf8");
 for (const id of [

@@ -111,20 +111,13 @@ async function chooseOutput(action = "start") {
   hideNotice();
 
   try {
-    const permissionState = await getOutputPermissionState();
+    const permissionState = await getMicrophonePermissionState();
     if (permissionState !== "granted") {
       await openSetupWindow(action);
       return;
     }
 
-    let device;
-    if (navigator.mediaDevices?.selectAudioOutput) {
-      setWorking(true, "Opening device picker …");
-      render();
-      device = normalizeDevice(await navigator.mediaDevices.selectAudioOutput());
-    } else {
-      device = await openDeviceDialog();
-    }
+    const device = await openDeviceDialog();
 
     if (!device) return;
     if (!device.deviceId) throw new DOMException("No device selected.", "NotFoundError");
@@ -150,12 +143,9 @@ async function chooseOutput(action = "start") {
   }
 }
 
-async function getOutputPermissionState() {
-  const permissionName = navigator.mediaDevices?.selectAudioOutput
-    ? "speaker-selection"
-    : "microphone";
+async function getMicrophonePermissionState() {
   try {
-    return (await navigator.permissions.query({ name: permissionName })).state;
+    return (await navigator.permissions.query({ name: "microphone" })).state;
   } catch {
     return "prompt";
   }

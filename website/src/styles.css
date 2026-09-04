@@ -1,0 +1,146 @@
+@import "tailwindcss";
+
+/* Vite fingerprints these; latin subset only, SIL OFL 1.1 (see assets/fonts). */
+@font-face {
+  font-family: "Space Grotesk";
+  font-style: normal;
+  font-weight: 400 700;
+  font-display: swap;
+  src: url("./assets/fonts/space-grotesk-latin.woff2") format("woff2");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC,
+    U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+  font-family: "IBM Plex Sans";
+  font-style: normal;
+  font-weight: 100 700;
+  font-display: swap;
+  src: url("./assets/fonts/ibm-plex-sans-latin.woff2") format("woff2");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC,
+    U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+  font-family: "IBM Plex Mono";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("./assets/fonts/ibm-plex-mono-latin.woff2") format("woff2");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC,
+    U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+/* Values mirror popup/popup.css so the site and the extension stay in step. */
+@theme {
+  --color-bg: #08110f;
+  --color-ink: #f3f8f5;
+  --color-ink-soft: #91a49d;
+  --color-ink-dim: #6f8b80;
+  --color-line: rgb(199 233 219 / 12%);
+  --color-line-strong: rgb(199 233 219 / 22%);
+  --color-mint: #5ee8ae;
+  --color-mint-bright: #7af4bf;
+  --color-mint-deep: #47cf97;
+  --color-mint-wash: rgb(94 232 174 / 10%);
+  --color-mint-edge: rgb(94 232 174 / 24%);
+  --color-amber: #f1ae67;
+  --color-node-rail: #486159;
+  --color-node-icon: #8ca198;
+  --color-node-label: #71867e;
+  --color-signal: #197856;
+  --color-signal-ink: #5ca88a;
+  --color-on-mint: #062318;
+
+  --font-display: "Space Grotesk", "Segoe UI Variable Display", "Segoe UI", system-ui, sans-serif;
+  --font-body: "IBM Plex Sans", "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, "Cascadia Mono", Consolas, monospace;
+
+  /* Breakpoints follow the design's three layout shifts, mobile-first. */
+  --breakpoint-sm: 680px;
+  --breakpoint-md: 900px;
+  --breakpoint-lg: 1180px;
+  --breakpoint-xl: initial;
+  --breakpoint-2xl: initial;
+
+  --shadow-card: inset 0 1px 0 rgb(255 255 255 / 3%), 0 10px 26px rgb(0 0 0 / 10%);
+  --shadow-mark: inset 0 1px 0 rgb(255 255 255 / 6%), 0 8px 24px rgb(0 0 0 / 18%);
+  --shadow-primary: 0 10px 24px rgb(39 171 119 / 18%), inset 0 1px 0 rgb(255 255 255 / 28%);
+  --shadow-popup: 0 34px 80px rgb(0 0 0 / 45%), inset 0 1px 0 rgb(255 255 255 / 5%);
+
+  --animate-route-flow: route-flow 1.2s linear infinite;
+}
+
+@keyframes route-flow {
+  from {
+    transform: translateY(0);
+  }
+  to {
+    transform: translateY(24px);
+  }
+}
+
+@utility surface {
+  background-image: linear-gradient(135deg, rgb(255 255 255 / 4%), rgb(255 255 255 / 1.5%));
+}
+
+@utility surface-mint {
+  background-image: linear-gradient(135deg, rgb(94 232 174 / 9%), rgb(94 232 174 / 2%));
+}
+
+@utility surface-primary {
+  background-image: linear-gradient(135deg, var(--color-mint-bright), var(--color-mint-deep));
+}
+
+@utility surface-stop {
+  background-image: linear-gradient(135deg, #26312d, #1b2522);
+}
+
+@utility surface-mark {
+  background-image: linear-gradient(145deg, rgb(94 232 174 / 15%), rgb(94 232 174 / 4%));
+}
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+    scroll-padding-top: 108px;
+    color-scheme: dark;
+  }
+
+  body {
+    position: relative;
+    margin: 0;
+    background: var(--color-bg);
+    color: var(--color-ink);
+    font-family: var(--font-body);
+    font-size: 16px;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-mint);
+    outline-offset: 3px;
+    border-radius: 6px;
+  }
+
+  @media (max-width: 680px) {
+    html {
+      scroll-padding-top: 84px;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    html {
+      scroll-behavior: auto;
+    }
+
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.001ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.001ms !important;
+    }
+  }
+}

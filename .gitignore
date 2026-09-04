@@ -6,3 +6,4 @@ artifacts/
 /artifacts
 /store-assets
 /release
+dist-ssr/
