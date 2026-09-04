@@ -4,6 +4,7 @@ import {
   PENDING_OUTPUT_SELECTION_STORAGE_KEY,
   PREFERRED_OUTPUT_STORAGE_KEY,
   formatHost,
+  getMeaningfulAudioOutputs,
   inactiveRouteState,
   isRestrictedUrl,
   normalizeDevice,
@@ -12,9 +13,13 @@ import {
 
 const elements = {
   audioState: document.querySelector("#audio-state"),
+  deviceDialog: document.querySelector("#device-dialog"),
   deviceHint: document.querySelector("#device-hint"),
+  deviceList: document.querySelector("#device-list"),
+  deviceListStep: document.querySelector("#device-list-step"),
   deviceName: document.querySelector("#device-name"),
   devicePicker: document.querySelector("#device-picker"),
+  dialogError: document.querySelector("#dialog-error"),
   notice: document.querySelector("#notice"),
   noticeClose: document.querySelector("#notice-close"),
   noticeText: document.querySelector("#notice-text"),
@@ -35,6 +40,7 @@ const viewState = {
   route: inactiveRouteState(null),
   working: false,
   compatible: true,
+  dialogResolver: null,
 };
 
 elements.devicePicker.addEventListener("click", () => {
@@ -43,6 +49,7 @@ elements.devicePicker.addEventListener("click", () => {
 });
 elements.routeButton.addEventListener("click", () => void toggleRoute());
 elements.noticeClose.addEventListener("click", hideNotice);
+elements.deviceDialog.addEventListener("close", () => void handleDialogClosed());
 
 chrome.runtime.onMessage.addListener((message) => {
   if (message?.target !== MESSAGE_TARGET.POPUP) return;
@@ -102,26 +109,38 @@ function supportsAudioRouting() {
 async function chooseOutput(action = "start") {
   if (viewState.working || !viewState.compatible || !viewState.tab) return;
   hideNotice();
-  setWorking(true, "Opening device selection …");
-  render();
 
   try {
-    await chrome.storage.session.set({
-      [PENDING_OUTPUT_SELECTION_STORAGE_KEY]: {
+    const permissionState = await getOutputPermissionState();
+    if (permissionState !== "granted") {
+      await openSetupWindow(action);
+      return;
+    }
+
+    let device;
+    if (navigator.mediaDevices?.selectAudioOutput) {
+      setWorking(true, "Opening device picker …");
+      render();
+      device = normalizeDevice(await navigator.mediaDevices.selectAudioOutput());
+    } else {
+      device = await openDeviceDialog();
+    }
+
+    if (!device) return;
+    if (!device.deviceId) throw new DOMException("No device selected.", "NotFoundError");
+
+    if (viewState.route.active) {
+      const { state } = await sendToWorker(MESSAGE_TYPE.CHANGE_OUTPUT, {
         tabId: viewState.tab.id,
-        windowId: viewState.tab.windowId,
-        tabTitle: viewState.tab.title,
-        action,
-      },
-    });
-    await chrome.windows.create({
-      url: chrome.runtime.getURL("setup/setup.html"),
-      type: "popup",
-      width: 480,
-      height: 680,
-      focused: true,
-    });
-    window.close();
+        ...device,
+      });
+      if (!state.active) throw new Error("The active audio route was stopped.");
+      viewState.route = state;
+    }
+
+    viewState.device = device;
+    await chrome.storage.local.set({ [PREFERRED_OUTPUT_STORAGE_KEY]: device });
+    if (!viewState.route.active && action === "start") await startRouting(device);
   } catch (error) {
     const normalized = normalizeError(error, "The output device could not be selected.");
     showNotice(normalized.message);
@@ -130,6 +149,121 @@ async function chooseOutput(action = "start") {
     render();
   }
 }
+
+async function getOutputPermissionState() {
+  const permissionName = navigator.mediaDevices?.selectAudioOutput
+    ? "speaker-selection"
+    : "microphone";
+  try {
+    return (await navigator.permissions.query({ name: permissionName })).state;
+  } catch {
+    return "prompt";
+  }
+}
+
+async function openSetupWindow(action) {
+  setWorking(true, "Opening permission window …");
+  render();
+  await chrome.storage.session.set({
+    [PENDING_OUTPUT_SELECTION_STORAGE_KEY]: {
+      tabId: viewState.tab.id,
+      windowId: viewState.tab.windowId,
+      tabTitle: viewState.tab.title,
+      action,
+    },
+  });
+  await chrome.windows.create({
+    url: chrome.runtime.getURL("setup/setup.html"),
+    type: "popup",
+    width: 480,
+    height: 680,
+    focused: true,
+  });
+  window.close();
+}
+
+async function openDeviceDialog() {
+  resetDeviceDialog();
+  elements.deviceDialog.showModal();
+  const selection = new Promise((resolve) => {
+    viewState.dialogResolver = resolve;
+  });
+  await showAvailableOutputs();
+  return selection;
+}
+
+async function showAvailableOutputs() {
+  const devices = await navigator.mediaDevices.enumerateDevices();
+  const outputs = getMeaningfulAudioOutputs(devices);
+  elements.deviceList.replaceChildren();
+  elements.deviceListStep.hidden = false;
+
+  if (!outputs.length) {
+    showDeviceListError("Chrome did not find an audio output device.");
+    return;
+  }
+
+  outputs.forEach((output, index) => {
+    const device = normalizeDevice({
+      deviceId: output.deviceId,
+      label: output.label || `Audio output ${index + 1}`,
+    });
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "device-option";
+    button.setAttribute("role", "listitem");
+
+    const icon = document.createElement("span");
+    icon.className = "device-option__icon";
+    icon.setAttribute("aria-hidden", "true");
+    icon.textContent = "◖";
+
+    const copy = document.createElement("span");
+    copy.className = "device-option__copy";
+    const name = document.createElement("strong");
+    name.textContent = device.label;
+    const kind = document.createElement("span");
+    kind.textContent = "Audio output device";
+    copy.append(name, kind);
+
+    const arrow = document.createElement("span");
+    arrow.className = "device-option__arrow";
+    arrow.setAttribute("aria-hidden", "true");
+    arrow.textContent = "›";
+
+    button.append(icon, copy, arrow);
+    button.addEventListener("click", () => {
+      resolveDialog(device);
+      elements.deviceDialog.close("selected");
+    });
+    elements.deviceList.append(button);
+  });
+}
+
+function resetDeviceDialog() {
+  elements.deviceListStep.hidden = true;
+  elements.deviceList.replaceChildren();
+  showDeviceListError("");
+}
+
+function showDeviceListError(message) {
+  elements.dialogError.textContent = message;
+  elements.dialogError.hidden = !message;
+}
+
+function resolveDialog(device) {
+  if (!viewState.dialogResolver) return;
+  const resolve = viewState.dialogResolver;
+  viewState.dialogResolver = null;
+  resolve(device);
+}
+
+async function handleDialogClosed() {
+  const selected = elements.deviceDialog.returnValue === "selected";
+  resolveDialog(null);
+  if (!selected) await chrome.storage.session.remove(PENDING_OUTPUT_SELECTION_STORAGE_KEY);
+}
+
 
 async function toggleRoute() {
   if (viewState.working || !viewState.tab || !viewState.compatible) return;

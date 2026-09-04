@@ -41,7 +41,7 @@ Windows lets applications choose an audio output. Chrome usually sends every tab
     </td>
     <td width="33%" valign="top">
       <strong>⚡ Guided routing</strong><br><br>
-      Pick a device, approve Chrome if needed, then reopen AudioRoute to start the prepared route.
+      Pick a device. If Chrome needs permission, approve it in the focused setup window; otherwise selection stays inline.
     </td>
     <td width="33%" valign="top">
       <strong>🔒 Local by default</strong><br><br>
@@ -74,8 +74,8 @@ The signal-path interface keeps the important state visible: **source tab → se
 
 1. Play audio in a Chrome tab.
 2. Open **AudioRoute** from the toolbar.
-3. Select an output device, then return to the source tab and reopen **AudioRoute**.
-4. Choose **Start routing**. Playback survives closing the popup.
+3. Select an output device. If Chrome asks for permission, finish the focused setup window, return to the source tab, reopen **AudioRoute**, and choose **Start routing**. With existing permission, routing starts from the inline picker.
+4. Playback survives closing the popup.
 
 To switch outputs, click the current destination. To restore normal playback, reopen AudioRoute on the routed tab and choose **Stop routing**.
 
@@ -113,7 +113,7 @@ AudioRoute runs directly from the repository—no compilation step is required.
 
 ## A note about device access
 
-Chrome does not expose the complete list of audio outputs in every context until media-device access has been granted. AudioRoute therefore opens device setup in its own focused window, outside the toolbar popup, so Chrome's permission prompt remains fully visible and clickable. If the native speaker picker is unavailable, AudioRoute requests one-time media permission only to reveal the available output-device names.
+Chrome does not expose the complete list of audio outputs in every context until media-device access has been granted. When permission is still pending or blocked, AudioRoute opens device setup in its own focused window, outside the toolbar popup, so Chrome's permission prompt remains fully visible and clickable. Once access is available, the normal output picker stays inside the toolbar popup. If the native speaker picker is unavailable, AudioRoute requests one-time media permission only to reveal the available output-device names.
 
 The temporary microphone stream is stopped immediately. It is **never recorded, monitored, played, stored, uploaded, or transmitted**.
 
@@ -176,7 +176,7 @@ Build the publishable Chrome Web Store package:
 npm run build:release
 ```
 
-The build verifies the project and writes `release/AudioRoute-v<version>.zip` with `manifest.json` at the archive root. Tests, development scripts, screenshots, and other non-runtime files are excluded automatically. A SHA-256 checksum is printed after every successful build.
+The build verifies the project, increments the patch version in `manifest.json` and `package.json`, and writes `release/AudioRoute-v<version>.zip` with `manifest.json` at the archive root. Tests, development scripts, screenshots, and other non-runtime files are excluded automatically. A SHA-256 checksum is printed after every successful build.
 
 <details>
 <summary><strong>Project structure</strong></summary>

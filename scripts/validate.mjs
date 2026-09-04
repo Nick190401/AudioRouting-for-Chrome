@@ -63,16 +63,22 @@ for (const id of [
   "notice-text",
   "notice-close",
   "persistence-note",
+  "device-dialog",
+  "device-list-step",
+  "device-list",
 ]) {
   if (!popupHtml.includes(`id="${id}"`)) failures.push(`Popup ID missing: ${id}`);
 }
 
 const popupJavascript = readFileSync(resolve(workspace, "popup/popup.js"), "utf8");
-if (popupJavascript.includes("getUserMedia") || popupJavascript.includes("selectAudioOutput")) {
-  failures.push("Media permission prompts must not originate from the toolbar popup.");
+if (popupJavascript.includes("getUserMedia")) {
+  failures.push("Microphone permission prompts must not originate from the toolbar popup.");
 }
 if (!popupJavascript.includes('chrome.runtime.getURL("setup/setup.html")')) {
   failures.push("The toolbar popup must hand device selection to the standalone setup window.");
+}
+if (!popupJavascript.includes("getOutputPermissionState")) {
+  failures.push("The toolbar popup must check permission state before choosing its device-selection surface.");
 }
 const setupHtml = readFileSync(resolve(workspace, "setup/setup.html"), "utf8");
 for (const id of [

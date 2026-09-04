@@ -7,21 +7,37 @@ $ErrorActionPreference = "Stop"
 
 $workspace = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot ".."))
 $manifestPath = Join-Path $workspace "manifest.json"
+$packageJsonPath = Join-Path $workspace "package.json"
 
 if (-not (Test-Path -LiteralPath $manifestPath -PathType Leaf)) {
   throw "manifest.json was not found at $manifestPath."
 }
 
 $manifest = Get-Content -LiteralPath $manifestPath -Raw -Encoding UTF8 | ConvertFrom-Json
+$packageJson = Get-Content -LiteralPath $packageJsonPath -Raw -Encoding UTF8 | ConvertFrom-Json
 if ($manifest.manifest_version -ne 3) {
   throw "Only Manifest V3 extensions can be packaged."
 }
 if ([string]::IsNullOrWhiteSpace($manifest.version)) {
   throw "manifest.json must contain a version."
 }
+if ([string]::IsNullOrWhiteSpace($packageJson.version)) {
+  throw "package.json must contain a version."
+}
+if ($packageJson.version -ne $manifest.version) {
+  throw "manifest.json and package.json must use the same version."
+}
+if ($manifest.version -notmatch '^(?<major>\d+)\.(?<minor>\d+)\.(?<patch>\d+)$') {
+  throw "Version must use the MAJOR.MINOR.PATCH format so the patch number can be incremented safely."
+}
 if ($manifest.description.Length -gt 132) {
   throw "The manifest description exceeds Chrome Web Store's 132-character limit."
 }
+
+$previousVersion = $manifest.version
+$nextVersion = "$($Matches.major).$($Matches.minor).$([int64]$Matches.patch + 1)"
+$manifestRaw = Get-Content -LiteralPath $manifestPath -Raw -Encoding UTF8
+$packageJsonRaw = Get-Content -LiteralPath $packageJsonPath -Raw -Encoding UTF8
 
 Write-Host "Running release validation..." -ForegroundColor Cyan
 $validation = & npm --prefix $workspace run verify 2>&1
@@ -39,9 +55,11 @@ $releaseDirectory = if ([string]::IsNullOrWhiteSpace($OutputDirectory)) {
 
 New-Item -ItemType Directory -Path $releaseDirectory -Force | Out-Null
 
-$packageName = "AudioRoute-v$($manifest.version).zip"
+$packageName = "AudioRoute-v$nextVersion.zip"
 $zipPath = Join-Path $releaseDirectory $packageName
 $stagingPath = Join-Path $releaseDirectory ".AudioRoute-package"
+$versionUpdated = $false
+$releaseSucceeded = $false
 
 $packageFiles = @(
   "manifest.json",
@@ -70,6 +88,17 @@ if (Test-Path -LiteralPath $zipPath) {
 }
 
 try {
+  $versionPattern = '("version"\s*:\s*")' + [regex]::Escape($previousVersion) + '(")'
+  $updatedManifestRaw = $manifestRaw -replace $versionPattern, ('${1}' + $nextVersion + '${2}')
+  $updatedPackageJsonRaw = $packageJsonRaw -replace $versionPattern, ('${1}' + $nextVersion + '${2}')
+  if ($updatedManifestRaw -eq $manifestRaw -or $updatedPackageJsonRaw -eq $packageJsonRaw) {
+    throw "Could not update the version in manifest.json and package.json."
+  }
+  [IO.File]::WriteAllText($manifestPath, $updatedManifestRaw, [Text.UTF8Encoding]::new($false))
+  $versionUpdated = $true
+  [IO.File]::WriteAllText($packageJsonPath, $updatedPackageJsonRaw, [Text.UTF8Encoding]::new($false))
+  $manifest.version = $nextVersion
+
   foreach ($relativePath in $packageFiles) {
     $sourcePath = Join-Path $workspace $relativePath
     if (-not (Test-Path -LiteralPath $sourcePath -PathType Leaf)) {
@@ -107,12 +136,17 @@ try {
 
   Write-Host ""
   Write-Host "Release package created successfully." -ForegroundColor Green
-  Write-Host "Version : $($manifest.version)"
+  Write-Host "Version : $nextVersion (was $previousVersion)"
   Write-Host "ZIP     : $zipPath"
   Write-Host "Size    : $sizeMb MB"
   Write-Host "SHA-256 : $hash"
   Write-Host "Files   : $($archiveEntries.Count)"
+  $releaseSucceeded = $true
 } finally {
+  if ($versionUpdated -and -not $releaseSucceeded) {
+    [IO.File]::WriteAllText($manifestPath, $manifestRaw, [Text.UTF8Encoding]::new($false))
+    [IO.File]::WriteAllText($packageJsonPath, $packageJsonRaw, [Text.UTF8Encoding]::new($false))
+  }
   if (Test-Path -LiteralPath $stagingPath) {
     Remove-Item -LiteralPath $stagingPath -Recurse -Force
   }
