@@ -163,6 +163,16 @@ const GLYPHS = {
     viewBox: "0 0 24 24",
     body: <path d="M4 7h16M4 12h16M4 17h16" />,
   },
+  globe: {
+    viewBox: "0 0 24 24",
+    body: (
+      <>
+        <circle cx="12" cy="12" r="9" />
+        <path d="M3.5 9.5h17M3.5 14.5h17" />
+        <path d="M12 3a15 15 0 0 1 0 18M12 3a15 15 0 0 0 0 18" />
+      </>
+    ),
+  },
 } as const satisfies Record<string, Glyph>;
 
 export type IconName = keyof typeof GLYPHS;

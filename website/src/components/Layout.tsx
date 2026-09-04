@@ -2,24 +2,30 @@ import type { ReactNode } from "react";
 import { BrandMark } from "./BrandMark";
 import { Button } from "./Button";
 import { Icon } from "./Icon";
-import { COMPANY, EXTENSION, STORE_URL, footerNav, mainNav, type PageId } from "../site";
+import { EXTENSION, STORE_URL, href, type Locale, type PageId } from "../i18n";
+import type { Content } from "../content/de";
 
 export const WRAP = "mx-auto w-full max-w-[1440px] px-5 sm:px-10 lg:px-[72px]";
 
+const NAV_LINK =
+  "inline-flex min-h-11 items-center text-ink-soft hover:text-mint aria-[current]:text-mint";
+
 type Props = {
+  readonly locale: Locale;
   readonly page: PageId;
+  readonly c: Content;
   readonly withMidGlow?: boolean;
   readonly children: ReactNode;
 };
 
-export function Layout({ page, withMidGlow = false, children }: Props) {
+export function Layout({ locale, page, c, withMidGlow = false, children }: Props) {
   return (
     <>
       <a
         href="#inhalt"
         className="absolute left-4 -top-16 z-10 rounded-[10px] bg-mint-bright px-[18px] py-3 font-semibold text-on-mint transition-[top] duration-150 focus:top-4"
       >
-        Zum Inhalt springen
+        {c.common.skipLink}
       </a>
 
       {/* Clips the decorative radials: their containing block is the ICB, so
@@ -31,20 +37,53 @@ export function Layout({ page, withMidGlow = false, children }: Props) {
         )}
       </div>
 
-      <SiteHeader page={page} />
+      <SiteHeader locale={locale} page={page} c={c} />
       <main id="inhalt">{children}</main>
-      <SiteFooter page={page} />
+      <SiteFooter locale={locale} page={page} c={c} />
     </>
   );
 }
 
-function SiteHeader({ page }: { readonly page: PageId }) {
+function LanguageSwitch({
+  locale,
+  page,
+  c,
+}: {
+  readonly locale: Locale;
+  readonly page: PageId;
+  readonly c: Content;
+}) {
+  const other: Locale = locale === "de" ? "en" : "de";
+  return (
+    <a
+      href={href(other, page)}
+      hrefLang={other}
+      lang={other}
+      data-lang-switch={other}
+      aria-label={c.switchAria}
+      className="inline-flex min-h-11 items-center gap-1.75 text-ink-soft hover:text-mint"
+    >
+      <Icon name="globe" className="size-4" />
+      {c.otherLocaleName}
+    </a>
+  );
+}
+
+function SiteHeader({
+  locale,
+  page,
+  c,
+}: {
+  readonly locale: Locale;
+  readonly page: PageId;
+  readonly c: Content;
+}) {
   const lockup = (
     <>
       <BrandMark />
       <div>
         <p className="text-[9px] font-bold uppercase leading-[1.2] tracking-[.17em] text-ink-dim">
-          {EXTENSION.eyebrow}
+          {c.common.eyebrow}
         </p>
         <p className="font-display text-[19px] font-semibold leading-none tracking-[-.03em]">
           {EXTENSION.name}
@@ -63,38 +102,53 @@ function SiteHeader({ page }: { readonly page: PageId }) {
         {page === "index" ? (
           <div className="flex items-center gap-[11px]">{lockup}</div>
         ) : (
-          <a href="index.html" className="flex items-center gap-[11px] text-ink">
+          <a href={href(locale, "index")} className="flex items-center gap-[11px] text-ink">
             {lockup}
           </a>
         )}
 
         <nav
-          aria-label="Hauptnavigation"
-          className="order-3 flex w-full flex-wrap items-center gap-x-5 text-[13.5px] sm:order-none sm:w-auto sm:gap-x-[26px] sm:text-sm"
+          aria-label={c.common.navAria}
+          className="order-3 flex w-full flex-wrap items-center gap-x-5 text-[13.5px] sm:order-none sm:w-auto sm:gap-x-6 sm:text-sm"
         >
-          {mainNav(page).map((link) => (
-            <a
-              key={link.label}
-              href={link.href}
-              {...(link.href === `${page}.html` ? { "aria-current": "page" as const } : {})}
-              className="inline-flex min-h-11 items-center text-ink-soft hover:text-mint aria-[current]:text-mint"
-            >
-              {link.label}
-            </a>
-          ))}
+          <a href={href(locale, "index", "#features")} className={NAV_LINK}>
+            {c.common.nav.features}
+          </a>
+          <a href={href(locale, "index", "#how")} className={NAV_LINK}>
+            {c.common.nav.how}
+          </a>
+          <a href={href(locale, "index", "#permissions")} className={NAV_LINK}>
+            {c.common.nav.permissions}
+          </a>
+          <a
+            href={href(locale, "datenschutz")}
+            {...(page === "datenschutz" ? { "aria-current": "page" as const } : {})}
+            className={NAV_LINK}
+          >
+            {c.common.nav.privacy}
+          </a>
+          <LanguageSwitch locale={locale} page={page} c={c} />
         </nav>
 
         {/* The hero repeats this call to action full-width right below the fold. */}
         <Button href={STORE_URL} size="sm" className="max-sm:hidden">
           <Icon name="download" className="size-[17px]" />
-          Kostenlos installieren
+          {c.common.installShort}
         </Button>
       </div>
     </header>
   );
 }
 
-function SiteFooter({ page }: { readonly page: PageId }) {
+function SiteFooter({
+  locale,
+  page,
+  c,
+}: {
+  readonly locale: Locale;
+  readonly page: PageId;
+  readonly c: Content;
+}) {
   return (
     <footer className="relative z-1 border-t border-line bg-black/[.14]">
       <div
@@ -106,27 +160,41 @@ function SiteFooter({ page }: { readonly page: PageId }) {
             <span className="font-display text-[15px] font-semibold tracking-[-.02em]">
               {EXTENSION.name}
             </span>
-            <span className="text-[12.5px] text-ink-soft">Ein Projekt der {COMPANY.legalName}</span>
+            <span className="text-[12.5px] text-ink-soft">{c.common.footerTagline}</span>
           </div>
         </div>
 
         <nav
-          aria-label="Fußzeile"
-          className="flex flex-wrap gap-x-[26px] gap-y-1 text-[13.5px] max-sm:grid max-sm:grid-cols-2"
+          aria-label={c.common.footerAria}
+          className="flex flex-wrap gap-x-6 gap-y-1 text-[13.5px] max-sm:grid max-sm:grid-cols-2"
         >
-          {footerNav(page).map((link) => (
-            <a
-              key={link.label}
-              href={link.href}
-              {...(link.href === `${page}.html` ? { "aria-current": "page" as const } : {})}
-              className="inline-flex min-h-11 items-center text-ink-soft hover:text-mint aria-[current]:text-mint"
-            >
-              {link.label}
-            </a>
-          ))}
+          <a href={href(locale, "index", "#features")} className={NAV_LINK}>
+            {c.common.nav.features}
+          </a>
+          <a href={href(locale, "index", "#how")} className={NAV_LINK}>
+            {c.common.nav.how}
+          </a>
+          <a
+            href={href(locale, "datenschutz")}
+            {...(page === "datenschutz" ? { "aria-current": "page" as const } : {})}
+            className={NAV_LINK}
+          >
+            {c.common.nav.privacy}
+          </a>
+          <a
+            href={href(locale, "impressum")}
+            {...(page === "impressum" ? { "aria-current": "page" as const } : {})}
+            className={NAV_LINK}
+          >
+            {c.common.nav.imprint}
+          </a>
+          <a href="mailto:kontakt@kernelminds.de" className={NAV_LINK}>
+            {c.common.nav.contact}
+          </a>
+          <LanguageSwitch locale={locale} page={page} c={c} />
         </nav>
 
-        <span className="text-[12.5px] text-ink-soft">{COMPANY.copyright}</span>
+        <span className="text-[12.5px] text-ink-soft">{c.common.copyright}</span>
       </div>
     </footer>
   );

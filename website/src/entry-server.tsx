@@ -1,14 +1,13 @@
 import { StrictMode } from "react";
 import { renderToString } from "react-dom/server";
-import type { PageId } from "./site";
-import { PAGES } from "./pages/registry";
+import type { Locale, PageId } from "./i18n";
+import { PageView } from "./pages/registry";
 
 /** Called by prerender.mjs after the client build to bake each page into its HTML. */
-export function render(page: PageId): string {
-  const Page = PAGES[page];
+export function render(locale: Locale, page: PageId): string {
   return renderToString(
     <StrictMode>
-      <Page />
+      <PageView locale={locale} page={page} />
     </StrictMode>,
   );
 }

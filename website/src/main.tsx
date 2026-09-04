@@ -1,17 +1,18 @@
 import { StrictMode } from "react";
 import { hydrateRoot } from "react-dom/client";
 import "./styles.css";
-import { PAGES, isPageId } from "./pages/registry";
+import { isLocale, isPageId } from "./i18n";
+import { PageView } from "./pages/registry";
 
 const root = document.getElementById("root");
 const page = root?.dataset["page"];
+const locale = root?.dataset["locale"];
 
-if (root && isPageId(page)) {
-  const Page = PAGES[page];
+if (root && isPageId(page) && isLocale(locale)) {
   hydrateRoot(
     root,
     <StrictMode>
-      <Page />
+      <PageView locale={locale} page={page} />
     </StrictMode>,
   );
 }
