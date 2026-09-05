@@ -16,6 +16,7 @@ const requiredFiles = [
   "content/fullscreen-bridge.js",
   "offscreen/offscreen.html",
   "offscreen/offscreen.js",
+  "offscreen/audio-chain.js",
   "icons/icon-16.png",
   "icons/icon-32.png",
   "icons/icon-48.png",
@@ -66,6 +67,38 @@ for (const id of [
   "device-dialog",
   "device-list-step",
   "device-list",
+  "mix-summary",
+  "volume-slider",
+  "volume-value",
+  "balance-slider",
+  "balance-value",
+  "mono-toggle",
+  "boost-warning",
+  "other-routes-list",
+  "tab-route",
+  "tab-mix",
+  "tab-tabs",
+  "panel-route",
+  "panel-mix",
+  "panel-tabs",
+  "mix-body",
+  "mix-empty",
+  "mix-dot",
+  "tabs-count",
+  "tabs-empty",
+  "night-toggle",
+  "night-warning",
+  "voice-toggle",
+  "second-output-node",
+  "second-device-name",
+  "second-device-hint",
+  "remove-second-output",
+  "add-output",
+  "second-mix",
+  "second-volume-slider",
+  "second-volume-value",
+  "delay-slider",
+  "delay-value",
 ]) {
   if (!popupHtml.includes(`id="${id}"`)) failures.push(`Popup ID missing: ${id}`);
 }
@@ -83,6 +116,27 @@ if (!popupJavascript.includes("getMicrophonePermissionState")) {
 if (popupJavascript.includes('"speaker-selection"')) {
   failures.push("The toolbar popup must not mistake speaker-selection permission for microphone device-list access.");
 }
+// Every operation lives in three switch statements at once. Adding one and
+// forgetting a hop is silent at runtime, so assert both ends are wired.
+const workerJavascript = readFileSync(resolve(workspace, "service-worker.js"), "utf8");
+const offscreenJavascript = readFileSync(resolve(workspace, "offscreen/offscreen.js"), "utf8");
+for (const type of ["LIST_ROUTES", "UPDATE_ROUTE", "ADD_SINK", "REMOVE_SINK", "UPDATE_SINK"]) {
+  if (!workerJavascript.includes(`MESSAGE_TYPE.${type}`)) {
+    failures.push(`The service worker does not handle MESSAGE_TYPE.${type}.`);
+  }
+}
+for (const type of [
+  "OFFSCREEN_LIST_ROUTES",
+  "OFFSCREEN_UPDATE_ROUTE",
+  "OFFSCREEN_ADD_SINK",
+  "OFFSCREEN_REMOVE_SINK",
+  "OFFSCREEN_UPDATE_SINK",
+]) {
+  if (!offscreenJavascript.includes(`MESSAGE_TYPE.${type}`)) {
+    failures.push(`The offscreen document does not handle MESSAGE_TYPE.${type}.`);
+  }
+}
+
 const setupHtml = readFileSync(resolve(workspace, "setup/setup.html"), "utf8");
 for (const id of [
   "source-title",
@@ -110,6 +164,7 @@ const javascriptFiles = [
   "setup/setup.js",
   "content/fullscreen-bridge.js",
   "offscreen/offscreen.js",
+  "offscreen/audio-chain.js",
   "scripts/cdp-command.mjs",
   "scripts/inspect-extension.mjs",
   "scripts/inspect-worker.mjs",

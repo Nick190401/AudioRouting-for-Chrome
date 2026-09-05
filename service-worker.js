@@ -48,6 +48,11 @@ chrome.runtime.onInstalled.addListener(() => {
   void chrome.action.setBadgeBackgroundColor({ color: "#167c5a" });
 });
 
+chrome.runtime.onStartup.addListener(() => {
+  // Routes die with the extension; a stale count must not survive a restart.
+  void chrome.action.setBadgeText({ text: "" });
+});
+
 async function handleWorkerMessage(message, sender) {
   switch (message.type) {
     case MESSAGE_TYPE.GET_ACTIVE_TAB:
@@ -60,6 +65,16 @@ async function handleWorkerMessage(message, sender) {
       return { state: await stopRoute(message.tabId, "user") };
     case MESSAGE_TYPE.CHANGE_OUTPUT:
       return { state: await changeOutput(message) };
+    case MESSAGE_TYPE.LIST_ROUTES:
+      return { routes: await listRoutes() };
+    case MESSAGE_TYPE.UPDATE_ROUTE:
+      return { state: await updateRoute(message) };
+    case MESSAGE_TYPE.ADD_SINK:
+      return { state: await forwardToRoute(MESSAGE_TYPE.OFFSCREEN_ADD_SINK, message) };
+    case MESSAGE_TYPE.REMOVE_SINK:
+      return { state: await forwardToRoute(MESSAGE_TYPE.OFFSCREEN_REMOVE_SINK, message) };
+    case MESSAGE_TYPE.UPDATE_SINK:
+      return { state: await forwardToRoute(MESSAGE_TYPE.OFFSCREEN_UPDATE_SINK, message) };
     case MESSAGE_TYPE.PREPARE_FULLSCREEN:
       return { transition: await prepareFullscreenTransition(message, sender) };
     case MESSAGE_TYPE.RESUME_FULLSCREEN:
@@ -87,27 +102,44 @@ function serializeTab(tab) {
   };
 }
 
-async function startRoute({ tabId, deviceId, deviceLabel }) {
+async function startRoute({ tabId, deviceId, deviceLabel, label, tabTitle, tabHost, audio, sink, sinks }) {
   if (!Number.isInteger(tabId)) throw new Error("Invalid tab.");
   if (typeof deviceId !== "string" || !deviceId) {
     throw new DOMException("No output device selected.", "NotFoundError");
   }
 
+  // The popup sends the device as {deviceId, label}; the fullscreen resume path
+  // sends {deviceId, deviceLabel}. Accept both.
+  const resolvedLabel = deviceLabel ?? label;
+
   if (startLocks.has(tabId)) return startLocks.get(tabId);
 
-  const task = performStartRoute({ tabId, deviceId, deviceLabel }).finally(() => {
+  const task = performStartRoute({
+    tabId,
+    deviceId,
+    deviceLabel: resolvedLabel,
+    tabTitle,
+    tabHost,
+    audio,
+    sink,
+    sinks,
+  }).finally(() => {
     startLocks.delete(tabId);
   });
   startLocks.set(tabId, task);
   return task;
 }
 
-async function performStartRoute({ tabId, deviceId, deviceLabel }) {
+async function performStartRoute({ tabId, deviceId, deviceLabel, tabTitle, tabHost, audio, sink, sinks }) {
   await ensureOffscreenDocument();
 
   const currentState = await getRouteState(tabId);
   if (currentState.active) {
-    if (currentState.deviceId === deviceId) return currentState;
+    // Apply first: the early return below would otherwise discard the settings.
+    if (audio !== undefined || tabTitle !== undefined || tabHost !== undefined) {
+      await updateRoute({ tabId, audio, tabTitle, tabHost });
+    }
+    if (currentState.deviceId === deviceId) return getRouteState(tabId);
     return changeOutput({ tabId, deviceId, deviceLabel });
   }
 
@@ -128,12 +160,17 @@ async function performStartRoute({ tabId, deviceId, deviceLabel }) {
       streamId,
       deviceId,
       deviceLabel,
+      tabTitle,
+      tabHost,
+      audio,
+      sink,
     });
 
     if (!response?.ok) throw response?.error || new Error("The audio stream could not be started.");
+    await restoreExtraSinks(tabId, sinks);
     await setBadge(tabId, true);
     await enableFullscreenBridge(tabId);
-    return response.state;
+    return await getRouteState(tabId);
   } catch (error) {
     await setBadge(tabId, false);
     throw error;
@@ -171,9 +208,16 @@ async function prepareFullscreenTransition({ tabId }, sender) {
   const state = await getRouteState(tabId);
   if (!state.active) return { suspended: false };
 
+  // The route is genuinely stopped and restarted here, so the suspension has to
+  // carry the whole restart profile — not just the device.
   fullscreenSuspensions.set(tabId, {
     deviceId: state.deviceId,
     deviceLabel: state.deviceLabel,
+    tabTitle: state.tabTitle,
+    tabHost: state.tabHost,
+    audio: state.audio,
+    sink: state.sinks?.[0],
+    sinks: state.sinks,
   });
 
   try {
@@ -190,9 +234,16 @@ async function resumeAfterFullscreen({ tabId }, sender) {
   const route = fullscreenSuspensions.get(tabId);
   if (!route) return { resumed: false };
 
-  fullscreenSuspensions.delete(tabId);
-  const state = await startRoute({ tabId, ...route });
-  return { resumed: state.active };
+  // Keep the entry until the restart succeeds. Dropping it first would destroy
+  // the user's volume and balance if the device hiccups mid-transition.
+  try {
+    const state = await startRoute({ tabId, ...route });
+    fullscreenSuspensions.delete(tabId);
+    return { resumed: state.active };
+  } catch (error) {
+    fullscreenSuspensions.set(tabId, route);
+    throw error;
+  }
 }
 
 function getSenderTabId(requestedTabId, sender) {
@@ -228,16 +279,77 @@ async function disableFullscreenBridge(tabId) {
   }
 }
 
-async function changeOutput({ tabId, deviceId, deviceLabel }) {
+async function changeOutput({ tabId, deviceId, deviceLabel, label }) {
   if (!(await hasOffscreenDocument())) return inactiveRouteState(tabId);
 
   const response = await sendToOffscreen({
     type: MESSAGE_TYPE.OFFSCREEN_CHANGE_OUTPUT,
     tabId,
     deviceId,
-    deviceLabel,
+    deviceLabel: deviceLabel ?? label,
   });
   if (!response?.ok) throw response?.error || new Error("The output device could not be changed.");
+  return response.state;
+}
+
+/**
+ * A fullscreen transition stops the route outright, so a tab that played
+ * through two devices has to get its second output back as well.
+ */
+async function restoreExtraSinks(tabId, sinks) {
+  if (!Array.isArray(sinks)) return;
+
+  for (const sink of sinks.slice(1)) {
+    try {
+      await forwardToRoute(MESSAGE_TYPE.OFFSCREEN_ADD_SINK, {
+        tabId,
+        deviceId: sink.deviceId,
+        deviceLabel: sink.deviceLabel,
+      });
+      await forwardToRoute(MESSAGE_TYPE.OFFSCREEN_UPDATE_SINK, {
+        tabId,
+        sinkId: (await getRouteState(tabId)).sinks.at(-1)?.id,
+        volume: sink.volume,
+        delayMs: sink.delayMs,
+      });
+    } catch {
+      // A device that vanished during the transition simply stays gone.
+    }
+  }
+}
+
+async function forwardToRoute(type, message) {
+  if (!Number.isInteger(message.tabId)) throw new Error("Invalid tab.");
+  if (!(await hasOffscreenDocument())) return inactiveRouteState(message.tabId);
+
+  const response = await sendToOffscreen({ ...message, type });
+  if (!response?.ok) throw response?.error || new Error("The route could not be updated.");
+  return response.state;
+}
+
+async function listRoutes() {
+  if (!(await hasOffscreenDocument())) return [];
+
+  try {
+    const response = await sendToOffscreen({ type: MESSAGE_TYPE.OFFSCREEN_LIST_ROUTES });
+    return response?.routes || [];
+  } catch {
+    return [];
+  }
+}
+
+async function updateRoute({ tabId, audio, tabTitle, tabHost }) {
+  if (!Number.isInteger(tabId)) throw new Error("Invalid tab.");
+  if (!(await hasOffscreenDocument())) return inactiveRouteState(tabId);
+
+  const response = await sendToOffscreen({
+    type: MESSAGE_TYPE.OFFSCREEN_UPDATE_ROUTE,
+    tabId,
+    audio,
+    tabTitle,
+    tabHost,
+  });
+  if (!response?.ok) throw response?.error || new Error("The route could not be updated.");
   return response.state;
 }
 
@@ -294,7 +406,13 @@ async function handleRouteStateChanged(state) {
     fullscreenSuspensions.delete(state.tabId);
     await disableFullscreenBridge(state.tabId);
   }
-  await setBadge(state.tabId, state.active);
+  // The tab is often already gone by the time this runs.
+  try {
+    await setBadge(state.tabId, state.active);
+  } catch {
+    // Nothing to update on a closed tab.
+  }
+  await refreshGlobalBadge();
 
   try {
     await chrome.runtime.sendMessage({
@@ -307,12 +425,36 @@ async function handleRouteStateChanged(state) {
   }
 }
 
+/**
+ * Routed tabs keep the per-tab "ON"; every other tab shows how many routes are
+ * running. Without it a route on a tab you never visit becomes invisible.
+ */
+async function refreshGlobalBadge() {
+  const count = (await listRoutes()).length;
+
+  try {
+    await chrome.action.setBadgeText({ text: count ? String(count) : "" });
+    await chrome.action.setBadgeBackgroundColor({ color: count ? "#2c3a35" : "#167c5a" });
+    await chrome.action.setTitle({
+      title: count
+        ? `AudioRoute – ${count} ${count === 1 ? "tab is" : "tabs are"} routed`
+        : "Open AudioRoute",
+    });
+  } catch {
+    // Badge updates are cosmetic.
+  }
+}
+
 async function setBadge(tabId, active) {
-  await chrome.action.setBadgeText({ tabId, text: active ? "ON" : "" });
+  // An empty string is a per-tab override, not a reset — it would permanently
+  // mask the global count on every tab that ever hosted a route. null removes it.
+  await chrome.action.setBadgeText({ tabId, text: active ? "ON" : null });
   if (active) {
     await chrome.action.setBadgeBackgroundColor({ tabId, color: "#167c5a" });
     await chrome.action.setTitle({ tabId, title: "AudioRoute – output is being routed" });
   } else {
+    // setBadgeText documents null as the way to drop a tab override; setTitle
+    // takes a string, so the tooltip stays explicit rather than guessing.
     await chrome.action.setTitle({ tabId, title: "Open AudioRoute" });
   }
 }

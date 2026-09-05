@@ -73,6 +73,7 @@ $packageFiles = @(
   "setup/setup.js",
   "offscreen/offscreen.html",
   "offscreen/offscreen.js",
+  "offscreen/audio-chain.js",
   "content/fullscreen-bridge.js",
   "icons/icon-16.png",
   "icons/icon-32.png",

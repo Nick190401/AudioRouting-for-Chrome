@@ -50,8 +50,8 @@ Windows lets applications choose an audio output. Chrome usually sends every tab
   </tr>
   <tr>
     <td width="33%" valign="top">
-      <strong>🎧 Live switching</strong><br><br>
-      Move an active route between headphones, speakers, HDMI, USB, and virtual outputs.
+      <strong>🎧 Two devices at once</strong><br><br>
+      Play one tab through headphones <em>and</em> speakers, each with its own volume and a delay to line them up.
     </td>
     <td width="33%" valign="top">
       <strong>🪟 Popup-free playback</strong><br><br>
@@ -123,6 +123,18 @@ Chromium may reject a page-level `requestFullscreen()` while that same tab is be
 
 Built-in support covers common YouTube-style controls, Video.js, Shaka Player, Plyr, and accessible fullscreen buttons identified through labels or titles. Unusual embedded players can still require <kbd>F11</kbd>.
 
+## Night mode and voice clarity
+
+Two optional switches per tab, both off by default:
+
+- **Night mode** evens out loud and quiet passages so late-night dialogue stays audible without
+  the next explosion waking the house. It costs a fixed **6 ms of latency** while active — far
+  below the threshold where lip sync becomes noticeable, but not free, which is why the popup
+  says so and why the compressor is removed from the graph rather than flattened when you turn
+  it off. Measured on Chromium: with night mode off the chain is bit-identical to a direct
+  connection.
+- **Voice clarity** lifts speech around 2 kHz by 6 dB. It adds no latency.
+
 ## Privacy by design
 
 > [!IMPORTANT]
@@ -137,7 +149,11 @@ Built-in support covers common YouTube-style controls, Video.js, Shaka Player, P
 - No broad host permissions such as `<all_urls>`
 - No remote code
 
-The only persistent preference is the locally selected output-device identifier and label. Temporary session storage is used solely to resume device selection after Chrome's permission flow.
+Persistent preferences are the locally selected output-device identifier and label, plus the processing switches (mono, balance, night mode, voice clarity). Per-tab volume is deliberately **not** persisted: every route starts at 100% so a boost left over from a quiet tab cannot surprise you on the next one.
+
+While a route is running, AudioRoute keeps the routed tab's title and host in memory so the popup can list routes on other tabs — Chrome does not hand that back without the `tabs` permission, which AudioRoute does not request. The host is stored instead of the full URL, both values live only for the lifetime of the route, and neither is ever written to storage.
+
+Temporary session storage is used solely to resume device selection after Chrome's permission flow.
 
 ## Permissions, without the mystery
 
@@ -153,7 +169,11 @@ Every permission directly supports the extension's single purpose. There is no p
 
 ## Technical boundaries
 
-- Routing is per tab. Start a separate route for every tab you want to redirect.
+- Routing is per tab, and a tab can play on two devices at once. AudioRoute stops at six
+  concurrent outputs, because every output needs its own audio context — three tabs on two
+  devices each is the ceiling.
+- Two devices rarely run in step. The per-output delay lines them up; without it the same
+  audio on speakers and headphones sounds like a comb filter.
 - Chrome system pages, the Chrome Web Store, and other protected pages cannot be captured.
 - Chrome shows its normal tab-capture indicator while routing is active.
 - Bluetooth, HDMI, and virtual devices can add latency at the operating-system or driver level.

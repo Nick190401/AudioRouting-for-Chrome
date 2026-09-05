@@ -28,12 +28,44 @@
         </div>
       </header>
 
-      <section class="signal-panel" aria-labelledby="route-heading">
-        <div class="panel-heading">
-          <h2 id="route-heading">Signal path</h2>
-          <span>This tab only</span>
-        </div>
+      <div class="tabs" role="tablist" aria-label="AudioRoute sections">
+        <button
+          class="tab"
+          id="tab-route"
+          type="button"
+          role="tab"
+          aria-selected="true"
+          aria-controls="panel-route"
+        >
+          Route
+        </button>
+        <button
+          class="tab"
+          id="tab-mix"
+          type="button"
+          role="tab"
+          aria-selected="false"
+          aria-controls="panel-mix"
+          tabindex="-1"
+        >
+          Mix
+          <span class="tab__dot" id="mix-dot" aria-hidden="true" hidden></span>
+        </button>
+        <button
+          class="tab"
+          id="tab-tabs"
+          type="button"
+          role="tab"
+          aria-selected="false"
+          aria-controls="panel-tabs"
+          tabindex="-1"
+        >
+          Tabs
+          <span class="tab__count" id="tabs-count" hidden></span>
+        </button>
+      </div>
 
+      <section class="tab-panel" id="panel-route" role="tabpanel" aria-labelledby="tab-route" tabindex="0">
         <article class="route-node route-node--source">
           <div class="node-icon node-icon--tab" aria-hidden="true">
             <svg viewBox="0 0 24 24">
@@ -75,6 +107,133 @@
             <svg viewBox="0 0 20 20"><path d="m7.5 5 5 5-5 5"></path></svg>
           </span>
         </article>
+
+        <article class="route-node route-node--output" id="second-output-node" hidden>
+          <div class="node-icon node-icon--speaker" aria-hidden="true">
+            <svg viewBox="0 0 24 24">
+              <path d="M4 9.25v5.5h3.7l4.8 3.75v-13L7.7 9.25H4Z"></path>
+              <path d="M16 8.4a4.8 4.8 0 0 1 0 7.2M18.6 5.8a8.25 8.25 0 0 1 0 12.4"></path>
+            </svg>
+          </div>
+          <div class="node-copy">
+            <span class="node-label">Second destination</span>
+            <strong id="second-device-name">—</strong>
+            <span class="node-meta" id="second-device-hint">Playing in parallel</span>
+          </div>
+          <button class="device-action device-action--remove" id="remove-second-output" type="button" aria-label="Remove the second output">
+            <svg viewBox="0 0 20 20"><path d="m6 6 8 8M14 6l-8 8"></path></svg>
+          </button>
+        </article>
+
+        <button class="add-output" id="add-output" type="button" hidden>
+          <span class="add-output__plus" aria-hidden="true">+</span>
+          Play on a second device too
+        </button>
+      </section>
+
+      <section class="tab-panel" id="panel-mix" role="tabpanel" aria-labelledby="tab-mix" tabindex="0" hidden>
+        <div class="panel-heading">
+          <h2>Mix</h2>
+          <span id="mix-summary">100% · Stereo</span>
+        </div>
+        <p class="panel-empty" id="mix-empty" hidden>Start routing to mix this tab.</p>
+        <div class="mix-body" id="mix-body">
+
+        <div class="mix-row">
+          <label class="mix-row__label" for="volume-slider">Volume</label>
+          <input
+            class="mix-slider"
+            id="volume-slider"
+            type="range"
+            min="0"
+            max="200"
+            step="5"
+            value="100"
+          />
+          <output class="mix-row__value" id="volume-value" for="volume-slider">100%</output>
+        </div>
+        <p class="mix-warning" id="boost-warning" hidden>
+          Above 100% quiet tabs get louder and peaks are rounded off softly.
+        </p>
+
+        <div class="mix-row">
+          <label class="mix-row__label" for="balance-slider">Balance</label>
+          <input
+            class="mix-slider"
+            id="balance-slider"
+            type="range"
+            min="-100"
+            max="100"
+            step="5"
+            value="0"
+          />
+          <output class="mix-row__value" id="balance-value" for="balance-slider">Center</output>
+        </div>
+
+        <label class="mix-toggle" for="mono-toggle">
+          <input id="mono-toggle" type="checkbox" />
+          <span>Mono — merge both channels</span>
+        </label>
+
+        <label class="mix-toggle" for="night-toggle">
+          <input id="night-toggle" type="checkbox" />
+          <span>Night mode — even out loud and quiet</span>
+        </label>
+        <p class="mix-warning" id="night-warning" hidden>
+          Adds 6 ms of latency while active. Below the threshold for lip sync, but it is not free.
+        </p>
+
+        <label class="mix-toggle" for="voice-toggle">
+          <input id="voice-toggle" type="checkbox" />
+          <span>Voice clarity — lift speech around 2 kHz</span>
+        </label>
+
+        <div class="mix-group" id="second-mix" hidden>
+          <p class="mix-group__title">Second output</p>
+
+          <div class="mix-row">
+            <label class="mix-row__label" for="second-volume-slider">Volume</label>
+            <input
+              class="mix-slider"
+              id="second-volume-slider"
+              type="range"
+              min="0"
+              max="200"
+              step="5"
+              value="100"
+            />
+            <output class="mix-row__value" id="second-volume-value" for="second-volume-slider">100%</output>
+          </div>
+
+          <div class="mix-row">
+            <label class="mix-row__label" for="delay-slider">Delay</label>
+            <input
+              class="mix-slider"
+              id="delay-slider"
+              type="range"
+              min="0"
+              max="250"
+              step="5"
+              value="0"
+            />
+            <output class="mix-row__value" id="delay-value" for="delay-slider">0 ms</output>
+          </div>
+
+          <p class="mix-warning mix-warning--hint" id="delay-hint">
+            Two devices rarely run in step — Bluetooth lags behind wired. Delay the faster one until
+            the echo disappears.
+          </p>
+        </div>
+        </div>
+      </section>
+
+      <section class="tab-panel" id="panel-tabs" role="tabpanel" aria-labelledby="tab-tabs" tabindex="0" hidden>
+        <div class="panel-heading">
+          <h2>Other routed tabs</h2>
+          <span id="other-routes-count"></span>
+        </div>
+        <p class="panel-empty" id="tabs-empty">No other tabs are routed right now.</p>
+        <div class="routes-list" id="other-routes-list" role="list"></div>
       </section>
 
       <div class="notice" id="notice" role="alert" hidden>
