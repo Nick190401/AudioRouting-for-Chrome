@@ -3,12 +3,12 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta name="color-scheme" content="dark" />
+    <meta name="color-scheme" content="light" />
     <title>Choose an output · AudioRoute</title>
+    <link rel="stylesheet" href="../shared/interface.css" />
     <link rel="stylesheet" href="setup.css" />
   </head>
   <body>
-    <div class="ambient-glow" aria-hidden="true"></div>
 
     <main class="setup-app" aria-labelledby="setup-title">
       <header class="topbar">
@@ -16,15 +16,17 @@
           <span></span><span></span><span></span><span></span><span></span>
         </div>
         <div>
-          <p class="eyebrow">Chrome Audio Router</p>
+          <p class="eyebrow">Audio connections</p>
           <p class="brand-name">AudioRoute</p>
         </div>
       </header>
 
+      <div class="setup-layout">
+      <div class="setup-context">
       <section class="intro">
         <p class="eyebrow">Output setup</p>
-        <h1 id="setup-title">Choose where this tab should play</h1>
-        <p>Chrome can show its permission prompt here without the toolbar popup covering it.</p>
+        <h1 id="setup-title">Good sound.<br>Right destination.</h1>
+        <p>Connect your speakers or headphones to this tab.</p>
       </section>
 
       <section class="source-card" aria-label="Selected source tab">
@@ -40,6 +42,8 @@
         </span>
       </section>
 
+      </div>
+      <div class="setup-steps">
       <div class="notice" id="notice" role="alert" hidden>
         <svg viewBox="0 0 20 20" aria-hidden="true">
           <path d="M10 2.5a7.5 7.5 0 1 0 0 15 7.5 7.5 0 0 0 0-15Zm0 4v4.25m0 2.75v.1"></path>
@@ -86,6 +90,8 @@
         <button class="primary-button" id="return-button" type="button">Return to source tab</button>
       </section>
 
+      </div>
+      </div>
       <footer>
         <span>Local only · no audio leaves Chrome</span>
         <button id="cancel-button" type="button">Cancel</button>

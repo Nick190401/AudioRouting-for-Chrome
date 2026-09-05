@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="light" />
+    <title>AudioRoute Studio</title>
+    <link rel="stylesheet" href="../shared/interface.css" />
+    <link rel="stylesheet" href="studio.css" />
+  </head>
+  <body>
+    <main class="studio">
+      <header class="topbar">
+        <div class="brand"><span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></span><div><p class="eyebrow">AudioRoute / Workspace</p><h1>Audio studio<span class="title-stop">.</span></h1></div></div>
+        <span class="connection" id="connection" role="status">Connecting</span>
+      </header>
+
+
+
+      <nav class="workspace-nav" aria-label="Studio sections"><a href="#mixer-heading">01 / Live mixer</a><a href="#scenes-heading">02 / Sound scenes</a></nav>
+
+      <section class="focus-section" aria-labelledby="focus-heading">
+        <div class="focus-heading"><div><h2 id="focus-heading">Smart Focus</h2><p id="focus-status">Let one tab take the lead.</p></div><label class="switch"><input id="focus-enabled" type="checkbox" aria-label="Enable Smart Focus" /><span aria-hidden="true"></span></label></div>
+        <p class="hint">Choose a priority channel. Its sound gently lowers the others to 20%.</p>
+      </section>
+
+      <div class="notice" id="notice" role="status" aria-live="polite" hidden><p id="notice-text"></p><button class="icon-button" id="dismiss-notice" type="button" aria-label="Dismiss notification">×</button></div>
+
+      <section class="mixer-section" aria-labelledby="mixer-heading">
+        <div class="section-heading"><h2 id="mixer-heading">Live mixer</h2><span class="counter" id="channel-count">0 channels</span></div>
+        <div class="empty-state" id="empty-state"><div class="empty-signal" aria-hidden="true"><span></span><span></span><span></span><span></span><span></span></div><h3>Your sound starts in a tab</h3><p>Open AudioRoute from Chrome’s toolbar on a playing tab and choose an output. It will appear here.</p><p class="hint">Already saved a scene? Reconnect its tabs from the toolbar, then recall it here.</p></div>
+        <div id="channels"></div>
+      </section>
+      <section class="scenes-section" aria-labelledby="scenes-heading">
+        <div class="section-heading"><h2 id="scenes-heading">Sound scenes</h2><button class="text-button" id="save-scene" type="button" disabled>+ Save current</button></div>
+        <div class="scene-picker"><label class="sr-only" for="scene-select">Saved sound scene</label><select id="scene-select"><option value="">No saved scenes</option></select><button class="primary-button" id="apply-scene" type="button" disabled>Recall</button></div>
+        <div class="scene-actions" id="scene-actions" hidden><button class="text-button" id="update-scene" type="button">Update mix</button><button class="text-button" id="rename-scene" type="button">Rename</button><button class="text-button" id="duplicate-scene" type="button">Duplicate</button><button class="text-button danger" id="delete-scene" type="button">Delete</button></div>
+        <p class="hint" id="scene-hint">Save your outputs and sound settings for next time.</p>
+      </section>
+      <footer><span class="privacy-dot" aria-hidden="true"></span>Local audio. No recordings.<p>Your mix keeps playing when Studio is closed.</p></footer>
+    </main>
+
+    <dialog id="scene-dialog" aria-labelledby="scene-dialog-title">
+      <form id="scene-form"><div class="dialog-heading"><h2 id="scene-dialog-title">Save sound scene</h2><button class="icon-button" type="button" data-close="scene-dialog" aria-label="Close scene editor">×</button></div><label class="field-label" for="scene-name">Scene name</label><input id="scene-name" type="text" maxlength="80" required autocomplete="off" placeholder="Work, Movie Night…" /><div id="scene-labels"></div><p class="hint" id="scene-save-hint">Saved on this device. Volumes above 100% return to 100% on recall.</p><p class="error" id="scene-error" role="alert" hidden></p><div class="dialog-actions"><button class="secondary-button" type="button" data-close="scene-dialog">Cancel</button><button class="primary-button" id="scene-submit" type="submit">Save scene</button></div></form>
+    </dialog>
+
+    <dialog id="recall-dialog" aria-labelledby="recall-title">
+      <form id="recall-form"><div class="dialog-heading"><h2 id="recall-title">Recall scene</h2><button class="icon-button" type="button" data-close="recall-dialog" aria-label="Close scene recall">×</button></div><p class="hint">Match the scene to your connected tabs. Missing tabs can be connected from Chrome’s toolbar.</p><div id="recall-channels"></div><p class="error" id="recall-error" role="alert" hidden></p><div class="dialog-actions"><button class="secondary-button" type="button" data-close="recall-dialog">Cancel</button><button class="primary-button" id="recall-submit" type="submit">Apply to connected tabs</button></div></form>
+    </dialog>
+
+    <dialog id="output-dialog" aria-labelledby="output-title"><div class="dialog-heading"><h2 id="output-title">Choose output</h2><button class="icon-button" type="button" data-close="output-dialog" aria-label="Close output picker">×</button></div><p class="hint" id="output-hint">Available audio devices</p><div id="outputs"></div><p class="error" id="output-error" role="alert" hidden></p><button class="secondary-button" id="device-setup" type="button" hidden>Open device setup</button></dialog>
+
+    <dialog id="delete-dialog" aria-labelledby="delete-title"><form id="delete-form"><h2 id="delete-title">Delete scene?</h2><p id="delete-copy"></p><div class="dialog-actions"><button class="secondary-button" type="button" data-close="delete-dialog">Keep scene</button><button class="danger-button" id="delete-submit" type="submit">Delete scene</button></div></form></dialog>
+    <script type="module" src="studio.js"></script>
+  </body>
+</html>

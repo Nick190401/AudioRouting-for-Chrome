@@ -61,25 +61,16 @@ $stagingPath = Join-Path $releaseDirectory ".AudioRoute-package"
 $versionUpdated = $false
 $releaseSucceeded = $false
 
-$packageFiles = @(
-  "manifest.json",
-  "service-worker.js",
-  "shared/utils.js",
-  "popup/popup.html",
-  "popup/popup.css",
-  "popup/popup.js",
-  "setup/setup.html",
-  "setup/setup.css",
-  "setup/setup.js",
-  "offscreen/offscreen.html",
-  "offscreen/offscreen.js",
-  "offscreen/audio-chain.js",
-  "content/fullscreen-bridge.js",
-  "icons/icon-16.png",
-  "icons/icon-32.png",
-  "icons/icon-48.png",
-  "icons/icon-128.png"
-)
+# Single source of truth, shared with scripts/validate.mjs, which fails the build
+# when a file in the extension tree is neither listed here nor explicitly excluded.
+$packageFilesPath = Join-Path $PSScriptRoot "package-files.json"
+# ConvertFrom-Json emits the array as a single object, so @() would wrap it again
+# and the copy loop below would see one entry. The cast flattens it and rejects
+# any element that is not a path string.
+[string[]]$packageFiles = Get-Content -LiteralPath $packageFilesPath -Raw -Encoding UTF8 | ConvertFrom-Json
+if ($packageFiles.Count -eq 0) {
+  throw "package-files.json is empty."
+}
 
 if (Test-Path -LiteralPath $stagingPath) {
   Remove-Item -LiteralPath $stagingPath -Recurse -Force
@@ -116,7 +107,9 @@ try {
 
   $archive = [IO.Compression.ZipFile]::OpenRead($zipPath)
   try {
-    $archiveEntries = @($archive.Entries | ForEach-Object FullName)
+    # Compress-Archive on Windows PowerShell writes backslash separators, so the
+    # forward-slash checks below never match without this.
+    $archiveEntries = @($archive.Entries | ForEach-Object { $_.FullName -replace "\\", "/" })
   } finally {
     $archive.Dispose()
   }
@@ -150,5 +143,9 @@ try {
   }
   if (Test-Path -LiteralPath $stagingPath) {
     Remove-Item -LiteralPath $stagingPath -Recurse -Force
+  }
+  # A rejected package must not survive as a file that looks ready to upload.
+  if (-not $releaseSucceeded -and (Test-Path -LiteralPath $zipPath)) {
+    Remove-Item -LiteralPath $zipPath -Force
   }
 }

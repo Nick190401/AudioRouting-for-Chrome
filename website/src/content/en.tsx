@@ -144,7 +144,7 @@ export const en: Content = {
 
     permissions: {
       eyebrow: "Permissions",
-      title: "Five permissions, each with a reason",
+      title: "Six permissions, each with a reason",
       colName: "Permission",
       colWhy: "Why AudioRoute needs it",
       items: [
@@ -152,7 +152,8 @@ export const en: Content = {
         { name: "tabCapture", why: "Creates that tab's local audio stream after an explicit action by you." },
         { name: "offscreen", why: "Keeps the Web Audio context alive after the popup closes." },
         { name: "scripting", why: "Injects the bundled fullscreen bridge into exactly that tab." },
-        { name: "storage", why: "Remembers the selected output and resumes an interrupted device setup." },
+        { name: "storage", why: "Saves local sound settings and scenes and recovers interrupted setup or fullscreen routing." },
+        { name: "sidePanel", why: "Keeps Studio's live mixer beside your websites." },
       ],
       footnote: (
         <>
@@ -166,7 +167,7 @@ export const en: Content = {
 
     privacy: {
       heading: "AudioRoute has no backend and makes no network requests.",
-      lead: "Your audio never leaves your device. Exactly one thing is stored permanently: the output device you picked last — locally in Chrome, on your machine.",
+      lead: "Your audio never leaves your device. Output preferences, sound settings, and scenes you explicitly save stay locally in Chrome. Studio measures sound levels locally for its meters and Smart Focus.",
       cta: "Read the privacy policy",
       promises: [
         "No account, no sign-in",
@@ -349,6 +350,18 @@ export const en: Content = {
             "Remembers a device selection in progress so setup can continue after Chrome's permission prompt.",
           retention: "For the current browser session only; discarded when Chrome quits.",
         },
+        {
+          purpose: "Your mono, balance, night mode and voice clarity preferences.",
+          retention: "Until changed, cleared in Chrome or the extension is removed.",
+        },
+        {
+          purpose: "Scenes you explicitly save: website hostnames, user channel labels, output devices, volumes up to 100%, delays, processing and priority settings. No captured page titles, full URLs or audio.",
+          retention: "Until you delete the scene in Studio, clear extension data or remove the extension.",
+        },
+        {
+          purpose: "Temporary routing settings for resuming a fullscreen transition after the background worker restarts. No page titles, full URLs or audio.",
+          retention: "Until routing resumes or stops; cleared when Chrome exits.",
+        },
       ],
     },
     permissions: [
@@ -356,7 +369,8 @@ export const en: Content = {
       { name: "tabCapture", why: "Creates that tab's local audio stream after an explicit action by you." },
       { name: "offscreen", why: "Keeps the Web Audio context alive after the popup closes." },
       { name: "scripting", why: "Injects the bundled fullscreen bridge into exactly that tab." },
-      { name: "storage", why: "Stores the two entries listed in section 4 locally." },
+      { name: "storage", why: "Stores the preferences, scenes and temporary recovery entries listed in section 4 locally." },
+      { name: "sidePanel", why: "Displays Studio's persistent live mixer alongside your websites." },
     ],
     rights: [
       "Access under Art. 15 GDPR",
@@ -415,8 +429,9 @@ export const en: Content = {
     s2: (
       <p className={P}>
         The audio stays entirely inside Chrome's local media pipeline on your device. There is no
-        recording, no analysis, no tracking and no profiling. Storage happens exclusively on your
-        device — and exclusively for the device selection (section 4).
+        recording, tracking or profiling. Studio calculates transient sound levels locally for
+        its meters and Smart Focus; it does not recognize speech. Preferences and explicitly saved
+        scenes remain on your device (section 4).
       </p>
     ),
     s3: (
@@ -429,7 +444,7 @@ export const en: Content = {
     ),
     s4Intro: (
       <p className={P}>
-        {EXTENSION.name} creates exactly two entries through the Chrome storage API. Both stay
+        {EXTENSION.name} uses the following entries through the Chrome storage API. They stay
         exclusively on your device or in your Chrome profile and are not transmitted to us.
       </p>
     ),
@@ -442,7 +457,7 @@ export const en: Content = {
           data in this respect.
         </p>
         <p className={P}>
-          You can delete both entries at any time by removing the extension in{" "}
+          Delete saved scenes individually in Studio. You can delete all entries by removing the extension in{" "}
           <span className={MONO}>chrome://extensions</span>.
         </p>
       </>
@@ -458,12 +473,19 @@ export const en: Content = {
         <p className={P}>
           The audio stream is{" "}
           <strong className={STRONG}>
-            not recorded, not analysed, not stored, not uploaded and not transmitted
+            not recorded, not stored, not uploaded and not transmitted
           </strong>
           . It exists only in your browser's memory and ends as soon as you stop routing or close
           the tab — and likewise if the selected device is disconnected. The process only starts
           after an explicit action by you; Chrome shows its usual active tab capture indicator
           throughout.
+        </p>
+        <p className={P}>
+          Studio calculates numeric peak and RMS levels locally, using independent channel energy
+          for Smart Focus. Audio samples and measured levels are never persisted. Live tab titles
+          remain in memory; device setup may temporarily retain the source title during permission
+          setup. Saved scenes contain only website hostnames and user labels, not captured titles
+          or complete URLs. Sources always require explicit connection through the toolbar.
         </p>
       </>
     ),

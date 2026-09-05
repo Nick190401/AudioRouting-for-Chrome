@@ -60,6 +60,7 @@ export function createAudioChain(context, source, audio, sink) {
 
   const gain = context.createGain();
   const shaper = context.createWaveShaper();
+  const automation = context.createGain();
   const delay = context.createDelay(MAX_DELAY_SECONDS);
 
   source.connect(downmix);
@@ -67,7 +68,8 @@ export function createAudioChain(context, source, audio, sink) {
   stereoize.connect(panner);
   voiceEq.connect(gain);
   gain.connect(shaper);
-  shaper.connect(delay);
+  shaper.connect(automation);
+  automation.connect(delay);
   delay.connect(context.destination);
 
   const chain = {
@@ -78,6 +80,7 @@ export function createAudioChain(context, source, audio, sink) {
     voiceEq,
     gain,
     shaper,
+    automation,
     delay,
     volume: 1,
     voice: false,
@@ -148,10 +151,26 @@ export function disconnectAudioChain(chain) {
     chain.voiceEq,
     chain.gain,
     chain.shaper,
+    chain.automation,
     chain.delay,
   ]) {
     node?.disconnect();
   }
+}
+
+/** Independent of manual volume, boost and processing; reaching the target is exact. */
+export function applyAutomation(chain, value, context, seconds = 0.12) {
+  const param = chain.automation.gain;
+  if (chain.automationTarget === value) return;
+  chain.automationTarget = value;
+  if (typeof param.cancelAndHoldAtTime === "function") {
+    param.cancelAndHoldAtTime(context.currentTime);
+  } else {
+    const current = param.value;
+    param.cancelScheduledValues(context.currentTime);
+    param.setValueAtTime(current, context.currentTime);
+  }
+  param.linearRampToValueAtTime(value, context.currentTime + seconds);
 }
 
 /**

@@ -145,7 +145,7 @@ export const de = {
 
     permissions: {
       eyebrow: "Berechtigungen",
-      title: "Fünf Berechtigungen, jede mit einem Grund",
+      title: "Sechs Berechtigungen, jede mit einem Grund",
       colName: "Berechtigung",
       colWhy: "Wofür AudioRoute sie braucht",
       items: [
@@ -153,7 +153,8 @@ export const de = {
         { name: "tabCapture", why: "Erzeugt nach deiner ausdrücklichen Aktion den lokalen Audiostream dieses Tabs." },
         { name: "offscreen", why: "Hält den Web-Audio-Kontext am Leben, nachdem sich das Popup geschlossen hat." },
         { name: "scripting", why: "Fügt genau diesem Tab die mitgelieferte Vollbild-Brücke hinzu." },
-        { name: "storage", why: "Merkt sich den gewählten Ausgang und setzt eine unterbrochene Geräte-Einrichtung fort." },
+        { name: "storage", why: "Speichert lokale Klangeinstellungen und Szenen und setzt Einrichtung oder Vollbild-Routing fort." },
+        { name: "sidePanel", why: "Zeigt den Studio-Mixer dauerhaft neben deinen Webseiten." },
       ],
       footnote: (
         <>
@@ -167,11 +168,11 @@ export const de = {
 
     privacy: {
       heading: "AudioRoute hat kein Backend und stellt keine Netzwerkanfragen.",
-      lead: "Dein Ton verlässt dein Gerät nicht. Dauerhaft gespeichert wird nur eines: das zuletzt gewählte Ausgabegerät — lokal in Chrome, auf deinem Rechner.",
+      lead: "Dein Ton verlässt dein Gerät nicht. Geräteauswahl, Klangeinstellungen und ausdrücklich gespeicherte Szenen bleiben lokal in Chrome. Für Pegelanzeigen und Smart Focus misst Studio den Ton ausschließlich auf deinem Gerät.",
       cta: "Datenschutzerklärung lesen",
       promises: [
         "Kein Konto, keine Anmeldung",
-        "Keine Analyse, keine Telemetrie",
+        "Keine Nutzungsanalyse, keine Telemetrie",
         "Keine Werbung, kein Tracking",
         "Keine Cloud-Verarbeitung",
         "Keine Aufzeichnung, kein Transkript",
@@ -340,6 +341,18 @@ export const de = {
             "Merkt sich eine begonnene Geräteauswahl, damit die Einrichtung nach Chromes Berechtigungsdialog fortgesetzt werden kann.",
           retention: "Nur für die laufende Browser-Sitzung; beim Beenden von Chrome verworfen.",
         },
+        {
+          purpose: "Ihre Einstellungen für Mono, Balance, Nachtmodus und Sprachklarheit.",
+          retention: "Bis zur Änderung, zum Löschen der Daten oder zur Deinstallation.",
+        },
+        {
+          purpose: "Ausdrücklich gespeicherte Szenen: Website-Hostnamen, eigene Kanalnamen, Ausgabegeräte, Lautstärken bis 100 %, Verzögerungen, Klang- und Prioritätseinstellungen. Keine erfassten Seitentitel, vollständigen URLs oder Audiodaten.",
+          retention: "Bis Sie die Szene in Studio löschen, die Erweiterungsdaten löschen oder die Erweiterung entfernen.",
+        },
+        {
+          purpose: "Temporäre Routing-Einstellungen zur Wiederaufnahme eines Vollbildwechsels nach Neustart des Hintergrundprozesses. Keine Seitentitel, vollständigen URLs oder Audiodaten.",
+          retention: "Bis zur Wiederaufnahme oder zum Stopp des Routings; beim Beenden von Chrome verworfen.",
+        },
       ],
     },
     permissions: [
@@ -347,7 +360,8 @@ export const de = {
       { name: "tabCapture", why: "Erzeugt nach Ihrer ausdrücklichen Aktion den lokalen Audiostream dieses Tabs." },
       { name: "offscreen", why: "Hält den Web-Audio-Kontext am Leben, nachdem sich das Popup geschlossen hat." },
       { name: "scripting", why: "Fügt genau diesem Tab die mitgelieferte Vollbild-Brücke hinzu." },
-      { name: "storage", why: "Speichert die beiden unter Abschnitt 4 genannten Einträge lokal." },
+      { name: "storage", why: "Speichert die Einstellungen, Szenen und temporären Wiederherstellungseinträge aus Abschnitt 4 lokal." },
+      { name: "sidePanel", why: "Zeigt den Studio-Mixer dauerhaft neben Ihren Webseiten." },
     ],
     rights: [
       "Auskunft nach Art. 15 DSGVO",
@@ -406,9 +420,9 @@ export const de = {
     s2: (
       <p className={P}>
         Der Ton bleibt vollständig in der lokalen Medien-Pipeline von Chrome auf Ihrem Gerät. Es
-        findet keine Aufzeichnung, keine Analyse, kein Tracking und keine Profilbildung statt.
-        Gespeichert wird ausschließlich auf Ihrem Gerät — und ausschließlich, was die Geräteauswahl
-        betrifft (Abschnitt 4).
+        findet keine Aufzeichnung, kein Tracking und keine Profilbildung statt. Studio berechnet
+        lokal kurzlebige Schallpegel für Pegelanzeigen und Smart Focus; es erkennt keine Sprache.
+        Einstellungen und ausdrücklich gespeicherte Szenen bleiben auf Ihrem Gerät (Abschnitt 4).
       </p>
     ),
     s3: (
@@ -421,7 +435,7 @@ export const de = {
     ),
     s4Intro: (
       <p className={P}>
-        {EXTENSION.name} legt über die Chrome-Speicher-API genau zwei Einträge an. Beide verbleiben
+        {EXTENSION.name} verwendet die folgenden Einträge über die Chrome-Speicher-API. Sie verbleiben
         ausschließlich auf Ihrem Gerät beziehungsweise in Ihrem Chrome-Profil und werden nicht an
         uns übertragen.
       </p>
@@ -435,7 +449,7 @@ export const de = {
           Angaben Ihr Gerät nicht verlassen, verarbeiten wir insoweit keine personenbezogenen Daten.
         </p>
         <p className={P}>
-          Sie können beide Einträge jederzeit löschen, indem Sie die Erweiterung in{" "}
+          Gespeicherte Szenen können Sie einzeln in Studio löschen. Alle Einträge löschen Sie, indem Sie die Erweiterung in{" "}
           <span className={MONO}>chrome://extensions</span> entfernen.
         </p>
       </>
@@ -451,13 +465,21 @@ export const de = {
         <p className={P}>
           Der Audiostream wird{" "}
           <strong className={STRONG}>
-            nicht aufgezeichnet, nicht analysiert, nicht gespeichert, nicht hochgeladen und nicht
+            nicht aufgezeichnet, nicht gespeichert, nicht hochgeladen und nicht
             übertragen
           </strong>
           . Er existiert nur im Arbeitsspeicher Ihres Browsers und endet, sobald Sie das Routing
           beenden oder den Tab schließen — ebenso, wenn das gewählte Gerät getrennt wird. Der
           Vorgang startet ausschließlich nach einer ausdrücklichen Aktion von Ihnen; Chrome zeigt
           währenddessen seinen üblichen Hinweis auf eine aktive Tab-Erfassung.
+        </p>
+        <p className={P}>
+          Studio berechnet Spitzen- und Effektivpegel lokal. Smart Focus wertet die Energie der
+          Audiokanäle getrennt aus. Audiosamples und Messwerte werden niemals gespeichert.
+          Laufende Tab-Titel bleiben im Arbeitsspeicher; bei der Geräte-Einrichtung kann der
+          Quelltitel vorübergehend während der Berechtigungsabfrage gehalten werden. Szenen
+          enthalten nur Website-Hostnamen und eigene Kanalnamen, keine erfassten Titel oder
+          vollständigen URLs. Quellen werden immer ausdrücklich über die Symbolleiste verbunden.
         </p>
       </>
     ),

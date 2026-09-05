@@ -9,6 +9,9 @@ import type { Content } from "../content/de";
 const STORAGE_KEYS: readonly { key: string; api: string }[] = [
   { key: "preferredOutputDevice", api: "chrome.storage.local" },
   { key: "pendingOutputSelection", api: "chrome.storage.session" },
+  { key: "preferredAudioSettings", api: "chrome.storage.local" },
+  { key: "audioRouteStudioScenes", api: "chrome.storage.local" },
+  { key: "studioFullscreenRecovery", api: "chrome.storage.session" },
 ];
 
 export function Datenschutz({ locale, c }: { readonly locale: Locale; readonly c: Content }) {

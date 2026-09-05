@@ -4,7 +4,7 @@
 
 # AudioRoute
 
-### One Chrome tab. Any audio output. No system-wide switching.
+### Your browser. Your outputs. Your mix.
 
 Route a tab to headphones, speakers, HDMI, a USB DAC, or a virtual device — while every other app keeps using the Windows default output.
 
@@ -69,6 +69,26 @@ Windows lets applications choose an audio output. Chrome usually sends every tab
 <img src="docs/assets/audioroute-routing.png" alt="AudioRoute popup showing a Chrome tab routed to USB headphones" width="100%" />
 
 The signal-path interface keeps the important state visible: **source tab → selected destination → live routing status**. Changing the destination is always one click away.
+
+## AudioRoute Studio
+
+Choose **Open Studio** in the toolbar popup to keep a live mixer beside your websites.
+Every connected tab has its own outputs, measured audio levels, volume, mute, solo, and sound settings.
+The popup and Studio control the same audio engine; playback continues when either closes.
+
+- **Sound scenes:** save your current arrangement as Work, Movie Night, or any name you choose.
+  Scenes remember exact website hostnames, user channel labels, devices, delays, processing and priority settings locally.
+  Recall shows missing devices and asks you to assign a tab when several connected tabs use the same website.
+  Individual failures are reported without discarding channels that applied successfully.
+- **Smart Focus:** select a priority channel and enable Smart Focus. When that tab produces sound,
+  the other connected channels fade to 20% of their chosen volume and return after a short pause.
+  This detects sound energy, including music and notifications; it does not recognize speech or access your microphone.
+- **Your controls stay yours:** mute and solo take precedence, and automatic attenuation never changes your sliders.
+  Smart Focus starts disabled. Solo and boosts above 100% are session-only; scenes restore at most 100%.
+
+Save up to 20 scenes with six channels and six outputs in total. Each tab supports two outputs.
+New sources must be connected from the AudioRoute toolbar on each tab. A scene cannot start capture,
+open saved websites, or resume capture automatically after Chrome restarts. Reconnect the desired tabs, then recall the scene.
 
 ## Start routing in seconds
 
@@ -149,11 +169,13 @@ Two optional switches per tab, both off by default:
 - No broad host permissions such as `<all_urls>`
 - No remote code
 
-Persistent preferences are the locally selected output-device identifier and label, plus the processing switches (mono, balance, night mode, voice clarity). Per-tab volume is deliberately **not** persisted: every route starts at 100% so a boost left over from a quiet tab cannot surprise you on the next one.
+Persistent preferences are the locally selected output-device identifier and label, the processing switches (mono, balance, night mode, voice clarity), and scenes you explicitly save. Normal routes start at 100%; saved scene volumes are limited to 100% so an old boost cannot surprise you on recall.
 
-While a route is running, AudioRoute keeps the routed tab's title and host in memory so the popup can list routes on other tabs — Chrome does not hand that back without the `tabs` permission, which AudioRoute does not request. The host is stored instead of the full URL, both values live only for the lifetime of the route, and neither is ever written to storage.
+While a route is running, AudioRoute keeps its title and hostname in memory for the mixer. Saved scenes retain only the hostname and your chosen channel label, never captured page titles or full URLs. Navigation invalidates the saved-site assignment until you reconnect the tab. AudioRoute does not request the `tabs` or browsing-history permissions.
 
-Temporary session storage is used solely to resume device selection after Chrome's permission flow.
+Temporary session storage resumes interrupted device selection and fullscreen transitions. Device setup can temporarily hold the source tab's display title; fullscreen recovery stores routing settings without page titles or full URLs. Recovery entries are removed on completion/stop and disappear when Chrome exits.
+
+Studio's meters and Smart Focus calculate sound levels locally. Only transient numeric peak/RMS values pass between extension components; audio samples and measured levels are never written to storage or sent over the network. Delete scenes individually in Studio or remove the extension to erase its local preferences.
 
 ## Permissions, without the mystery
 
@@ -163,7 +185,8 @@ Temporary session storage is used solely to resume device selection after Chrome
 | `tabCapture` | Creates the selected tab's local audio stream after an explicit user action. |
 | `offscreen` | Keeps the Web Audio context alive after the extension popup closes. |
 | `scripting` | Injects the bundled fullscreen compatibility bridge into that active tab. |
-| `storage` | Remembers the selected local output and resumes interrupted device setup. |
+| `storage` | Saves local preferences/scenes and resumes interrupted setup/fullscreen transitions. |
+| `sidePanel` | Keeps Studio's live mixer visible alongside your websites. |
 
 Every permission directly supports the extension's single purpose. There is no persistent access to websites.
 
@@ -190,6 +213,8 @@ npm run verify
 
 This validates the Manifest V3 package, required assets, JavaScript syntax, popup structure, and utility tests. It neither opens an audio route nor plays a test sound.
 
+The suite also exercises scene privacy/validation, concurrency limits, hardware-failure recovery, Smart Focus, sender authorization, and Studio interactions. For actual Chrome/audio verification, use `node scripts/test-studio.mjs <debug-port> <extension-id>` in a **dedicated test profile** with the unpacked extension installed. It plays quiet synthetic tones, uses available physical outputs, and writes its report and narrow/wide screenshots under `artifacts/studio/`. It does not prove acoustic loudness or latency at the speaker hardware.
+
 Build the publishable Chrome Web Store package:
 
 ```powershell
@@ -206,6 +231,8 @@ AudioRoute/
 ├── manifest.json          Extension metadata and permissions
 ├── service-worker.js      Capture lifecycle and routing coordination
 ├── popup/                 Compact signal-path and route controls
+├── studio/                Persistent mixer and sound scenes
+├── worker/                Local scene management and recall
 ├── setup/                 Visible permission and output-selection flow
 ├── offscreen/             Persistent AudioContext and sink selection
 ├── content/               Temporary fullscreen compatibility bridge

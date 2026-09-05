@@ -1,15 +1,14 @@
 <!doctype html>
-<html lang="de">
+<html lang="en">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta name="color-scheme" content="dark" />
+    <meta name="color-scheme" content="light" />
     <title>AudioRoute</title>
+    <link rel="stylesheet" href="../shared/interface.css" />
     <link rel="stylesheet" href="popup.css" />
   </head>
   <body>
-    <div class="ambient-glow ambient-glow--one" aria-hidden="true"></div>
-    <div class="ambient-glow ambient-glow--two" aria-hidden="true"></div>
 
     <main class="app" aria-labelledby="app-title">
       <header class="topbar">
@@ -18,7 +17,7 @@
             <span></span><span></span><span></span><span></span><span></span>
           </div>
           <div class="brand-copy">
-            <p class="eyebrow">Chrome Audio Router</p>
+            <p class="eyebrow">Tab audio control</p>
             <h1 id="app-title">AudioRoute</h1>
           </div>
         </div>
@@ -28,7 +27,10 @@
         </div>
       </header>
 
-      <div class="tabs" role="tablist" aria-label="AudioRoute sections">
+
+
+      <div class="popup-workspace">
+      <div class="tabs" role="tablist" aria-label="AudioRoute sections" aria-orientation="vertical">
         <button
           class="tab"
           id="tab-route"
@@ -66,6 +68,7 @@
       </div>
 
       <section class="tab-panel" id="panel-route" role="tabpanel" aria-labelledby="tab-route" tabindex="0">
+        <div class="route-heading"><p class="eyebrow">Signal routing</p><h2>Choose your<br>destination.</h2></div>
         <article class="route-node route-node--source">
           <div class="node-icon node-icon--tab" aria-hidden="true">
             <svg viewBox="0 0 24 24">
@@ -236,6 +239,8 @@
         <div class="routes-list" id="other-routes-list" role="list"></div>
       </section>
 
+      </div>
+
       <div class="notice" id="notice" role="alert" hidden>
         <svg viewBox="0 0 20 20" aria-hidden="true">
           <path d="M10 2.5a7.5 7.5 0 1 0 0 15 7.5 7.5 0 0 0 0-15Zm0 4v4.25m0 2.75v.1"></path>
@@ -254,6 +259,11 @@
         </button>
         <p class="persistence-note" id="persistence-note">Keeps running when you close this popup.</p>
       </section>
+
+      <button class="studio-entry" id="open-studio" type="button">
+        <span><strong>Open Studio</strong><span>All tabs. Scenes. Smart Focus.</span></span>
+        <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="3"></rect><path d="M15 4v16M18 8v3m0 3v2"></path></svg>
+      </button>
 
       <footer class="feature-strip">
         <span>

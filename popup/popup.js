@@ -14,6 +14,7 @@ import {
   normalizeDevice,
   normalizeError,
 } from "../shared/utils.js";
+import { senderRole } from "../shared/security.js";
 
 const SVG_NS = "http://www.w3.org/2000/svg";
 const AUDIO_SEND_INTERVAL_MS = 60;
@@ -64,6 +65,7 @@ const elements = {
   noticeClose: document.querySelector("#notice-close"),
   noticeText: document.querySelector("#notice-text"),
   outputNode: document.querySelector("#output-node"),
+  openStudio: document.querySelector("#open-studio"),
   persistenceNote: document.querySelector("#persistence-note"),
   routeBadge: document.querySelector("#route-badge"),
   routeBadgeLabel: document.querySelector("#route-badge-label"),
@@ -94,6 +96,7 @@ const viewState = {
 };
 
 const sendQueues = new Map();
+const latestRouteStates = new Map();
 let otherRoutesSignature = "";
 
 elements.devicePicker.addEventListener("click", () => {
@@ -101,6 +104,16 @@ elements.devicePicker.addEventListener("click", () => {
   void chooseOutput(action);
 });
 elements.routeButton.addEventListener("click", () => void toggleRoute());
+elements.openStudio.addEventListener("click", () => {
+  // Chrome requires sidePanel.open to remain directly inside this user gesture.
+  if (!Number.isInteger(viewState.tab?.windowId)) {
+    showNotice("The current Chrome window is still loading. Try again in a moment.");
+    return;
+  }
+  chrome.sidePanel.open({ windowId: viewState.tab.windowId })
+    .then(() => window.close())
+    .catch((error) => showNotice(normalizeError(error, "Studio could not be opened.").message));
+});
 elements.noticeClose.addEventListener("click", hideNotice);
 elements.deviceDialog.addEventListener("close", () => void handleDialogClosed());
 
@@ -136,7 +149,7 @@ TABS.forEach((entry, index) => {
   const tab = elements[entry.tab];
   tab.addEventListener("click", () => selectTab(index));
   tab.addEventListener("keydown", (event) => {
-    const step = { ArrowLeft: -1, ArrowRight: 1 }[event.key];
+    const step = { ArrowLeft: -1, ArrowRight: 1, ArrowUp: -1, ArrowDown: 1 }[event.key];
     if (step) {
       event.preventDefault();
       selectTab((index + step + TABS.length) % TABS.length, { focus: true });
@@ -152,11 +165,12 @@ TABS.forEach((entry, index) => {
 elements.addOutput.addEventListener("click", () => void addSecondOutput());
 elements.removeSecondOutput.addEventListener("click", () => void removeSecondOutput());
 
-chrome.runtime.onMessage.addListener((message) => {
+chrome.runtime.onMessage.addListener((message, sender) => {
+  if (senderRole(sender, chrome.runtime.id) !== "worker") return;
   if (message?.target !== MESSAGE_TARGET.POPUP) return;
   if (message.type !== MESSAGE_TYPE.ROUTE_STATE_CHANGED) return;
 
-  const state = message.state;
+  const state = rememberRouteState(message.state);
   if (!state || !Number.isInteger(state.tabId)) return;
 
   if (state.tabId !== viewState.tab?.id) {
@@ -173,6 +187,18 @@ chrome.runtime.onMessage.addListener((message) => {
     showNotice("The output device was disconnected. Routing was stopped safely.");
   }
 });
+
+function rememberRouteState(state) {
+  if (!state || !Number.isInteger(state.tabId)) return state;
+  const previous = latestRouteStates.get(state.tabId);
+  if (previous?.epoch === state.epoch && previous?.revision > state.revision) return previous;
+  latestRouteStates.set(state.tabId, state);
+  return state;
+}
+
+document.addEventListener("focusout", () => queueMicrotask(() => {
+  if (viewState.route.active) applyMixControls(viewState.route);
+}));
 
 void initialize();
 
@@ -463,6 +489,8 @@ async function sendToWorker(type, payload = {}) {
     throw error;
   }
 
+  if (response.state) response.state = rememberRouteState(response.state);
+  if (response.routes) response.routes = response.routes.map(rememberRouteState);
   return response;
 }
 
